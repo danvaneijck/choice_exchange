@@ -45,6 +45,9 @@ pub fn instantiate(
         owner: deps.api.addr_canonicalize(info.sender.as_str())?,
         token_code_id: msg.token_code_id,
         pair_code_id: msg.pair_code_id,
+
+        burn_address: deps.api.addr_canonicalize(&msg.burn_address)?, // Store burn address
+        fee_wallet_address: deps.api.addr_canonicalize(&msg.fee_wallet_address)?, // Store fee wallet address
     };
 
     CONFIG.save(deps.storage, &config)?;
@@ -59,7 +62,9 @@ pub fn execute(deps: DepsMut, env: Env, info: MessageInfo, msg: ExecuteMsg) -> S
             owner,
             token_code_id,
             pair_code_id,
-        } => execute_update_config(deps, env, info, owner, token_code_id, pair_code_id),
+            burn_address,       // New field
+            fee_wallet_address, // New field
+        } => execute_update_config(deps, env, info, owner, token_code_id, pair_code_id, burn_address, fee_wallet_address),
         ExecuteMsg::CreatePair { assets } => execute_create_pair(deps, env, info, assets),
         ExecuteMsg::AddNativeTokenDecimals { denom, decimals } => {
             execute_add_native_token_decimals(deps, env, info, denom, decimals)
@@ -78,6 +83,8 @@ pub fn execute_update_config(
     owner: Option<String>,
     token_code_id: Option<u64>,
     pair_code_id: Option<u64>,
+    burn_address: Option<String>, // New field
+    fee_wallet_address: Option<String>, // New field
 ) -> StdResult<Response> {
     let mut config: Config = CONFIG.load(deps.storage)?;
 
@@ -99,6 +106,14 @@ pub fn execute_update_config(
 
     if let Some(pair_code_id) = pair_code_id {
         config.pair_code_id = pair_code_id;
+    }
+
+    if let Some(burn_address) = burn_address {
+        config.burn_address = deps.api.addr_canonicalize(&burn_address)?;
+    }
+
+    if let Some(fee_wallet_address) = fee_wallet_address {
+        config.fee_wallet_address = deps.api.addr_canonicalize(&fee_wallet_address)?;
     }
 
     CONFIG.save(deps.storage, &config)?;
@@ -177,6 +192,8 @@ pub fn execute_create_pair(
                     asset_infos,
                     token_code_id: config.token_code_id,
                     asset_decimals,
+                    burn_address: deps.api.addr_humanize(&config.burn_address)?.to_string(), // Pass burn address
+                    fee_wallet_address: deps.api.addr_humanize(&config.fee_wallet_address)?.to_string(), // Pass fee wallet address
                 })?,
             }),
             reply_on: ReplyOn::Success,
@@ -260,6 +277,10 @@ pub fn reply(deps: DepsMut, env: Env, msg: Reply) -> StdResult<Response> {
         tmp_pair_info.assets[1].info.clone(),
     ];
 
+    let factory_config: Config = CONFIG.load(deps.storage)?;
+    let burn_address = factory_config.burn_address.clone();
+    let fee_wallet_address = factory_config.fee_wallet_address.clone();
+
     PAIRS.save(
         deps.storage,
         &tmp_pair_info.pair_key,
@@ -268,6 +289,8 @@ pub fn reply(deps: DepsMut, env: Env, msg: Reply) -> StdResult<Response> {
             contract_addr: deps.api.addr_canonicalize(pair_contract)?,
             asset_infos: raw_infos,
             asset_decimals: tmp_pair_info.asset_decimals,
+            burn_address,       // Add burn address
+            fee_wallet_address, // Add fee wallet address
         },
     )?;
 
@@ -345,6 +368,9 @@ pub fn query_config(deps: Deps) -> StdResult<ConfigResponse> {
         owner: deps.api.addr_humanize(&state.owner)?.to_string(),
         token_code_id: state.token_code_id,
         pair_code_id: state.pair_code_id,
+
+        burn_address: deps.api.addr_humanize(&state.burn_address)?.to_string(), // Return burn address
+        fee_wallet_address: deps.api.addr_humanize(&state.fee_wallet_address)?.to_string(), // Return fee wallet address
     };
 
     Ok(resp)

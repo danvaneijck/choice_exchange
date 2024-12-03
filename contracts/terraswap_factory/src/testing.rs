@@ -1,12 +1,12 @@
 use crate::contract::{execute, instantiate, query, reply};
 use terraswap::mock_querier::{mock_dependencies, WasmMockQuerier};
 
-use crate::state::{pair_key, TmpPairInfo, TMP_PAIR_INFO};
+use crate::state::{pair_key, TmpPairInfo, TMP_PAIR_INFO, CONFIG, Config};
 
 use cosmwasm_std::testing::{mock_env, mock_info, MockApi, MockStorage, MOCK_CONTRACT_ADDR};
 use cosmwasm_std::{
     attr, coin, coins, from_binary, to_binary, Addr, CosmosMsg, OwnedDeps, Reply, ReplyOn,
-    Response, StdError, SubMsg, SubMsgResponse, SubMsgResult, Uint128, WasmMsg,
+    Response, StdError, SubMsg, SubMsgResponse, SubMsgResult, Uint128, WasmMsg, Api,
 };
 use cw20::Cw20ExecuteMsg;
 use terraswap::asset::{Asset, AssetInfo, PairInfo};
@@ -25,6 +25,8 @@ fn proper_initialization() {
     let msg = InstantiateMsg {
         pair_code_id: 321u64,
         token_code_id: 123u64,
+        burn_address: "burnaddr0000".to_string(), // New field
+        fee_wallet_address: "feeaddr0000".to_string(), // New field
     };
 
     let info = mock_info("addr0000", &[]);
@@ -37,6 +39,8 @@ fn proper_initialization() {
     assert_eq!(123u64, config_res.token_code_id);
     assert_eq!(321u64, config_res.pair_code_id);
     assert_eq!("addr0000".to_string(), config_res.owner);
+    assert_eq!("burnaddr0000".to_string(), config_res.burn_address); // New assertion
+    assert_eq!("feeaddr0000".to_string(), config_res.fee_wallet_address); // New assertion
 }
 
 #[test]
@@ -46,6 +50,8 @@ fn update_config() {
     let msg = InstantiateMsg {
         pair_code_id: 321u64,
         token_code_id: 123u64,
+        burn_address: "burnaddr0000".to_string(), // New field
+        fee_wallet_address: "feeaddr0000".to_string(), // New field
     };
 
     let info = mock_info("addr0000", &[]);
@@ -59,6 +65,8 @@ fn update_config() {
         owner: Some("addr0001".to_string()),
         pair_code_id: None,
         token_code_id: None,
+        burn_address: None,
+        fee_wallet_address: None,
     };
 
     let res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
@@ -78,6 +86,8 @@ fn update_config() {
         owner: None,
         pair_code_id: Some(100u64),
         token_code_id: Some(200u64),
+        burn_address: None,
+        fee_wallet_address: None,
     };
 
     let res = execute(deps.as_mut(), env, info, msg).unwrap();
@@ -97,6 +107,8 @@ fn update_config() {
         owner: None,
         pair_code_id: None,
         token_code_id: None,
+        burn_address: None,
+        fee_wallet_address: None,
     };
 
     let res = execute(deps.as_mut(), env, info, msg);
@@ -112,6 +124,8 @@ fn init(
     let msg = InstantiateMsg {
         pair_code_id: 321u64,
         token_code_id: 123u64,
+        burn_address: "burnaddr0000".to_string(), // New field
+        fee_wallet_address: "feeaddr0000".to_string(), // New field
     };
 
     let env = mock_env();
@@ -179,7 +193,9 @@ fn create_pair() {
                         }
                     ],
                     token_code_id: 123u64,
-                    asset_decimals: [6u8, 8u8]
+                    asset_decimals: [6u8, 8u8],
+                    burn_address: "burnaddr0000".to_string(), // Add burn address
+                    fee_wallet_address: "feeaddr0000".to_string(), // Add fee wallet address
                 })
                 .unwrap(),
                 code_id: 321u64,
@@ -267,7 +283,9 @@ fn create_pair_native_token_and_ibc_token() {
                         }
                     ],
                     token_code_id: 123u64,
-                    asset_decimals: [6u8, 6u8]
+                    asset_decimals: [6u8, 6u8],
+                    burn_address: "burnaddr0000".to_string(), // Add burn address
+                    fee_wallet_address: "feeaddr0000".to_string(), // Add fee wallet address
                 })
                 .unwrap(),
                 code_id: 321u64,
@@ -403,6 +421,19 @@ fn fail_to_create_pair_with_unknown_token() {
 fn reply_only_create_pair() {
     let mut deps = mock_dependencies(&[]);
 
+    CONFIG
+        .save(
+            &mut deps.storage,
+            &Config {
+                owner: deps.api.addr_canonicalize("owner0000").unwrap(),
+                token_code_id: 123u64,
+                pair_code_id: 321u64,
+                burn_address: deps.api.addr_canonicalize("burnaddr0000").unwrap(),
+                fee_wallet_address: deps.api.addr_canonicalize("feeaddr0000").unwrap(),
+            },
+        )
+        .unwrap();
+
     deps.querier.with_token_balances(&[(
         &MOCK_CONTRACT_ADDR.to_string(),
         &[
@@ -475,6 +506,8 @@ fn reply_only_create_pair() {
                 contract_addr: "0000".to_string(),
                 liquidity_token: "liquidity0000".to_string(),
                 asset_decimals: [8u8, 8u8],
+                burn_address: "burnaddr0000".to_string(), // New field
+                fee_wallet_address: "feeaddr0000".to_string(), // New field
             },
         )],
         &[],
@@ -493,6 +526,19 @@ fn reply_only_create_pair() {
 #[test]
 fn reply_create_pair_with_provide() {
     let mut deps = mock_dependencies(&[]);
+
+    CONFIG
+        .save(
+            &mut deps.storage,
+            &Config {
+                owner: deps.api.addr_canonicalize("owner0000").unwrap(),
+                token_code_id: 123u64,
+                pair_code_id: 321u64,
+                burn_address: deps.api.addr_canonicalize("burnaddr0000").unwrap(),
+                fee_wallet_address: deps.api.addr_canonicalize("feeaddr0000").unwrap(),
+            },
+        )
+        .unwrap();
 
     deps.querier
         .with_balance(&[(&MOCK_CONTRACT_ADDR.to_string(), coins(100u128, "uluna"))]);
@@ -566,6 +612,8 @@ fn reply_create_pair_with_provide() {
                 contract_addr: "pair0000".to_string(),
                 liquidity_token: "liquidity0000".to_string(),
                 asset_decimals: [18u8, 8u8],
+                burn_address: "burnaddr0000".to_string(), // New field
+                fee_wallet_address: "feeaddr0000".to_string(), // New field
             },
         )],
         &[("uluna".to_string(), 18u8)],

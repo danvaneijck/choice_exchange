@@ -5,7 +5,9 @@
   "required": [
     "asset_decimals",
     "asset_infos",
+    "burn_address",
     "contract_addr",
+    "fee_wallet_address",
     "liquidity_token"
   ],
   "properties": {
@@ -27,7 +29,13 @@
       "maxItems": 2,
       "minItems": 2
     },
+    "burn_address": {
+      "type": "string"
+    },
     "contract_addr": {
+      "type": "string"
+    },
+    "fee_wallet_address": {
       "type": "string"
     },
     "liquidity_token": {
