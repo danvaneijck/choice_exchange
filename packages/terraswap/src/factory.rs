@@ -8,6 +8,9 @@ pub struct InstantiateMsg {
     /// Pair contract code ID, which is used to
     pub pair_code_id: u64,
     pub token_code_id: u64,
+
+    pub burn_address: String, // New field for the burn address
+    pub fee_wallet_address: String, // New field for the fee wallet address
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
@@ -18,6 +21,9 @@ pub enum ExecuteMsg {
         owner: Option<String>,
         token_code_id: Option<u64>,
         pair_code_id: Option<u64>,
+
+        burn_address: Option<String>, // New field
+        fee_wallet_address: Option<String>, // New field
     },
     /// CreatePair instantiates pair contract
     CreatePair {
@@ -55,6 +61,9 @@ pub struct ConfigResponse {
     pub owner: String,
     pub pair_code_id: u64,
     pub token_code_id: u64,
+
+    pub burn_address: String, // New field
+    pub fee_wallet_address: String, // New field
 }
 
 /// We currently take no arguments for migrations

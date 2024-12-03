@@ -252,6 +252,8 @@ pub struct PairInfo {
     pub contract_addr: String,
     pub liquidity_token: String,
     pub asset_decimals: [u8; 2],
+    pub burn_address: String, // New field
+    pub fee_wallet_address: String, // New field
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
@@ -260,6 +262,8 @@ pub struct PairInfoRaw {
     pub contract_addr: CanonicalAddr,
     pub liquidity_token: CanonicalAddr,
     pub asset_decimals: [u8; 2],
+    pub burn_address: CanonicalAddr, // New field
+    pub fee_wallet_address: CanonicalAddr, // New field
 }
 
 impl PairInfoRaw {
@@ -272,6 +276,8 @@ impl PairInfoRaw {
                 self.asset_infos[1].to_normal(api)?,
             ],
             asset_decimals: self.asset_decimals,
+            burn_address: api.addr_humanize(&self.burn_address)?.to_string(),
+            fee_wallet_address: api.addr_humanize(&self.fee_wallet_address)?.to_string(),
         })
     }
 

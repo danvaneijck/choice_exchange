@@ -55,6 +55,8 @@ pub fn instantiate(
             msg.asset_infos[1].to_raw(deps.api)?,
         ],
         asset_decimals: msg.asset_decimals,
+        burn_address: deps.api.addr_canonicalize(&msg.burn_address)?, // Store burn address
+        fee_wallet_address: deps.api.addr_canonicalize(&msg.fee_wallet_address)?, // Store fee wallet
     };
 
     PAIR_INFO.save(deps.storage, pair_info)?;
@@ -533,9 +535,33 @@ pub fn swap(
 
     let receiver = to.unwrap_or_else(|| sender.clone());
 
+    let burn_amount = commission_amount.multiply_ratio(1u128, 4u128); // 1/4 of the fee
+    let fee_wallet_amount = commission_amount.multiply_ratio(1u128, 4u128); // 1/4 of the fee
+    let pool_amount = commission_amount - burn_amount - fee_wallet_amount; // Remaining 1/2 stays in the pool
+
     let mut messages: Vec<CosmosMsg> = vec![];
     if !return_amount.is_zero() {
         messages.push(return_asset.into_msg(receiver.clone())?);
+    }
+
+    // Handle the burn amount
+    if !burn_amount.is_zero() {
+        let burn_asset = Asset {
+            info: ask_pool.info.clone(),
+            amount: burn_amount,
+        };
+        messages.push(burn_asset.into_msg(deps.api.addr_humanize(&pair_info.burn_address)?)?);
+    }
+
+    // Handle the fee wallet amount
+    if !fee_wallet_amount.is_zero() {
+        let fee_wallet_asset = Asset {
+            info: ask_pool.info.clone(),
+            amount: fee_wallet_amount,
+        };
+        messages.push(fee_wallet_asset.into_msg(
+            deps.api.addr_humanize(&pair_info.fee_wallet_address)?,
+        )?);
     }
 
     // 1. send collateral token from the contract to a user
@@ -550,6 +576,9 @@ pub fn swap(
         ("return_amount", &return_amount.to_string()),
         ("spread_amount", &spread_amount.to_string()),
         ("commission_amount", &commission_amount.to_string()),
+        ("burn_amount", &burn_amount.to_string()),
+        ("fee_wallet_amount", &fee_wallet_amount.to_string()),
+        ("pool_amount", &pool_amount.to_string()),
     ]))
 }
 

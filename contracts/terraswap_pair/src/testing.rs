@@ -34,6 +34,8 @@ fn proper_initialization() {
         ],
         token_code_id: 10u64,
         asset_decimals: [6u8, 8u8],
+        burn_address: "burnaddr0000".to_string(), // New field
+        fee_wallet_address: "feeaddr0000".to_string(), // New field
     };
 
     // we can just call .unwrap() to assert this was a success
@@ -97,6 +99,8 @@ fn proper_initialization() {
             }
         ]
     );
+    assert_eq!("burnaddr0000", pair_info.burn_address.as_str());
+    assert_eq!("feeaddr0000", pair_info.fee_wallet_address.as_str());
 }
 
 #[test]
@@ -125,6 +129,8 @@ fn provide_liquidity() {
         ],
         token_code_id: 10u64,
         asset_decimals: [6u8, 8u8],
+        burn_address: "burnaddr0000".to_string(), // New field
+        fee_wallet_address: "feeaddr0000".to_string(), // New field
     };
 
     let env = mock_env();
@@ -550,6 +556,8 @@ fn withdraw_liquidity() {
         ],
         token_code_id: 10u64,
         asset_decimals: [6u8, 8u8],
+        burn_address: "burnaddr0000".to_string(), // New field
+        fee_wallet_address: "feeaddr0000".to_string(), // New field
     };
 
     let env = mock_env();
@@ -742,6 +750,8 @@ fn try_native_to_token() {
         ],
         token_code_id: 10u64,
         asset_decimals: [6u8, 8u8],
+        burn_address: "burnaddr0000".to_string(), // New field
+        fee_wallet_address: "feeaddr0000".to_string(), // New field
     };
 
     let env = mock_env();
@@ -797,6 +807,11 @@ fn try_native_to_token() {
         .unwrap();
     let expected_commission_amount =
         expected_ret_amount.multiply_ratio(3u128, 1000u128) + Uint128::from(1u8); // 0.3%, round up
+
+    let expected_burn_amount = expected_commission_amount.multiply_ratio(1u128, 4u128);
+    let expected_fee_wallet_amount = expected_commission_amount.multiply_ratio(1u128, 4u128);
+    let expected_pool_amount = expected_commission_amount - expected_burn_amount - expected_fee_wallet_amount;
+
     let expected_return_amount = expected_ret_amount
         .checked_sub(expected_commission_amount)
         .unwrap();
@@ -864,6 +879,10 @@ fn try_native_to_token() {
             attr("return_amount", expected_return_amount.to_string()),
             attr("spread_amount", expected_spread_amount.to_string()),
             attr("commission_amount", expected_commission_amount.to_string()),
+
+            attr("burn_amount", expected_burn_amount.to_string()),
+            attr("fee_wallet_amount", expected_fee_wallet_amount.to_string()),
+            attr("pool_amount", expected_pool_amount.to_string()),
         ]
     );
 
@@ -918,6 +937,8 @@ fn try_token_to_native() {
         ],
         token_code_id: 10u64,
         asset_decimals: [8u8, 8u8],
+        burn_address: "burnaddr0000".to_string(), // New field
+        fee_wallet_address: "feeaddr0000".to_string(), // New field
     };
 
     let env = mock_env();
@@ -991,6 +1012,12 @@ fn try_token_to_native() {
     let expected_return_amount = expected_ret_amount
         .checked_sub(expected_commission_amount)
         .unwrap();
+
+
+    let expected_burn_amount = expected_commission_amount.multiply_ratio(1u128, 4u128);
+    let expected_fee_wallet_amount = expected_commission_amount.multiply_ratio(1u128, 4u128);
+    let expected_pool_amount = expected_commission_amount - expected_burn_amount - expected_fee_wallet_amount;
+
     // check simulation res
     // return asset token balance as normal
     deps.querier.with_token_balances(&[
@@ -1058,6 +1085,10 @@ fn try_token_to_native() {
             attr("return_amount", expected_return_amount.to_string()),
             attr("spread_amount", expected_spread_amount.to_string()),
             attr("commission_amount", expected_commission_amount.to_string()),
+            
+            attr("burn_amount", expected_burn_amount.to_string()),
+            attr("fee_wallet_amount", expected_fee_wallet_amount.to_string()),
+            attr("pool_amount", expected_pool_amount.to_string()),
         ]
     );
 
@@ -1298,6 +1329,8 @@ fn test_query_pool() {
         ],
         token_code_id: 10u64,
         asset_decimals: [6u8, 8u8],
+        burn_address: "burnaddr0000".to_string(), // New field
+        fee_wallet_address: "feeaddr0000".to_string(), // New field
     };
 
     let env = mock_env();

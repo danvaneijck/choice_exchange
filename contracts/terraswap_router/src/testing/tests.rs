@@ -293,6 +293,8 @@ fn execute_swap_operation() {
                 contract_addr: "pair0000".to_string(),
                 liquidity_token: "liquidity0000".to_string(),
                 asset_decimals: [6u8, 6u8],
+                burn_address: "burnaddr0000".to_string(), // New field
+                fee_wallet_address: "feeaddr0000".to_string(), // New field
             },
         )],
         &[("uusd".to_string(), 6u8)],
@@ -397,6 +399,8 @@ fn execute_swap_operation() {
                 contract_addr: "pair0000".to_string(),
                 liquidity_token: "liquidity0000".to_string(),
                 asset_decimals: [6u8, 6u8],
+                burn_address: "burnaddr0000".to_string(), // New field
+                fee_wallet_address: "feeaddr0000".to_string(), // New field
             },
         )],
         &[("uusd".to_string(), 6u8)],
@@ -499,6 +503,8 @@ fn query_buy_with_routes() {
                     contract_addr: "pair0000".to_string(),
                     liquidity_token: "liquidity0000".to_string(),
                     asset_decimals: [6u8, 6u8],
+                    burn_address: "burnaddr0000".to_string(), // New field
+                    fee_wallet_address: "feeaddr0000".to_string(), // New field
                 },
             ),
             (
@@ -515,6 +521,8 @@ fn query_buy_with_routes() {
                     contract_addr: "pair0001".to_string(),
                     liquidity_token: "liquidity0001".to_string(),
                     asset_decimals: [6u8, 6u8],
+                    burn_address: "burnaddr0000".to_string(), // New field
+                    fee_wallet_address: "feeaddr0000".to_string(), // New field
                 },
             ),
         ],
@@ -588,6 +596,8 @@ fn query_reverse_routes_with_from_native() {
                         },
                     ],
                     asset_decimals: [8u8, 6u8],
+                    burn_address: "burnaddr0000".to_string(), // New field
+                    fee_wallet_address: "feeaddr0000".to_string(), // New field
                 },
             ),
             (
@@ -604,6 +614,8 @@ fn query_reverse_routes_with_from_native() {
                         },
                     ],
                     asset_decimals: [8u8, 6u8],
+                    burn_address: "burnaddr0000".to_string(), // New field
+                    fee_wallet_address: "feeaddr0000".to_string(), // New field
                 },
             ),
         ],
@@ -720,6 +732,8 @@ fn query_reverse_routes_with_to_native() {
                         },
                     ],
                     asset_decimals: [8u8, 6u8],
+                    burn_address: "burnaddr0000".to_string(), // New field
+                    fee_wallet_address: "feeaddr0000".to_string(), // New field
                 },
             ),
             (
@@ -736,6 +750,8 @@ fn query_reverse_routes_with_to_native() {
                         },
                     ],
                     asset_decimals: [8u8, 6u8],
+                    burn_address: "burnaddr0000".to_string(), // New field
+                    fee_wallet_address: "feeaddr0000".to_string(), // New field
                 },
             ),
         ],

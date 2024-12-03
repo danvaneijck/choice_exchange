@@ -170,6 +170,8 @@ impl WasmMockQuerier {
                             asset_decimals: [6u8, 6u8],
                             contract_addr: "pair0000".to_string(),
                             liquidity_token: "liquidity0000".to_string(),
+                            burn_address: "burnaddr0000".to_string(), // New field
+                            fee_wallet_address: "feeaddr0000".to_string(), // New field
                         })))
                     }
                     Ok(PairQueryMsg::Simulation { offer_asset }) => {

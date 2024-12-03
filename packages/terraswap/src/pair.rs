@@ -13,6 +13,9 @@ pub struct InstantiateMsg {
     /// Token contract code id for initialization
     pub token_code_id: u64,
     pub asset_decimals: [u8; 2],
+
+    pub burn_address: String, // New field
+    pub fee_wallet_address: String, // New field
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
