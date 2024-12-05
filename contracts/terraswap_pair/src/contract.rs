@@ -4,11 +4,12 @@ use crate::state::PAIR_INFO;
 
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
+use serde::{Deserialize, Serialize};
 
 use cosmwasm_std::{
-    coins, from_binary, to_binary, Addr, BankMsg, Binary, CanonicalAddr, CosmosMsg, Decimal,
+    coins, from_json, to_json_binary, Addr, BankMsg, Binary, CanonicalAddr, CosmosMsg, Decimal,
     Decimal256, Deps, DepsMut, Env, MessageInfo, Reply, ReplyOn, Response, StdError, StdResult,
-    SubMsg, Uint128, Uint256, WasmMsg,
+    SubMsg, Uint128, Uint256, WasmMsg, ConversionOverflowError
 };
 
 use cw2::set_contract_version;
@@ -16,7 +17,6 @@ use cw20::{Cw20ExecuteMsg, Cw20ReceiveMsg, MinterResponse};
 use protobuf::Message;
 use std::cmp::Ordering;
 use std::convert::TryInto;
-use std::ops::Mul;
 use std::str::FromStr;
 use terraswap::asset::{Asset, AssetInfo, PairInfo, PairInfoRaw};
 use terraswap::pair::{
@@ -26,6 +26,16 @@ use terraswap::pair::{
 use terraswap::querier::query_token_info;
 use terraswap::token::InstantiateMsg as TokenInstantiateMsg;
 use terraswap::util::migrate_version;
+use cw_storage_plus::Item;
+
+use injective_cosmwasm::{InjectiveMsgWrapper, InjectiveRoute, InjectiveMsg};
+
+use injective_cosmwasm::exchange::subaccount::{checked_address_to_subaccount_id};
+use injective_cosmwasm::exchange::types::{SubaccountId};
+
+extern crate hex;
+use hex::{encode};
+
 
 // version info for migration info
 const CONTRACT_NAME: &str = "crates.io:terraswap-pair";
@@ -37,6 +47,17 @@ const INSTANTIATE_REPLY_ID: u64 = 1;
 const COMMISSION_RATE: u64 = 3;
 
 const MINIMUM_LIQUIDITY_AMOUNT: u128 = 1_000;
+
+pub const BURN_AUCTION_SUBACCOUNT: Item<Vec<u8>> = Item::new("burn_auction_subaccount");
+
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+pub enum LocalExecuteMsg {
+    RedeemAndSend {
+        recipient: String,
+        submsg: Option<SubMsg<CosmosMsg>>,
+    },
+}
 
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn instantiate(
@@ -55,18 +76,25 @@ pub fn instantiate(
             msg.asset_infos[1].to_raw(deps.api)?,
         ],
         asset_decimals: msg.asset_decimals,
-        burn_address: deps.api.addr_canonicalize(&msg.burn_address)?, // Store burn address
+        cw20_adapter_address: deps.api.addr_canonicalize(&msg.cw20_adapter_address)?, // Store burn address
         fee_wallet_address: deps.api.addr_canonicalize(&msg.fee_wallet_address)?, // Store fee wallet
     };
 
     PAIR_INFO.save(deps.storage, pair_info)?;
 
+    // Explicitly handle the error from `hex::decode`
+    let decoded_subaccount = hex::decode("1111111111111111111111111111111111111111111111111111111111111111")
+        .map_err(|e| StdError::generic_err(format!("Hex decode error: {}", e)))?;
+
+    BURN_AUCTION_SUBACCOUNT.save(deps.storage, &decoded_subaccount)?;
+
+
     Ok(Response::new().add_submessage(SubMsg {
-        // Create LP token
-        msg: WasmMsg::Instantiate {
+        id: INSTANTIATE_REPLY_ID,
+        msg: CosmosMsg::Wasm(WasmMsg::Instantiate {
             admin: None,
             code_id: msg.token_code_id,
-            msg: to_binary(&TokenInstantiateMsg {
+            msg: to_json_binary(&TokenInstantiateMsg {
                 name: "terraswap liquidity token".to_string(),
                 symbol: "uLP".to_string(),
                 decimals: 6,
@@ -78,11 +106,10 @@ pub fn instantiate(
             })?,
             funds: vec![],
             label: "lp".to_string(),
-        }
-        .into(),
+        }),
         gas_limit: None,
-        id: INSTANTIATE_REPLY_ID,
         reply_on: ReplyOn::Success,
+        payload: Binary::default(), // Default behavior
     }))
 }
 
@@ -149,7 +176,7 @@ pub fn receive_cw20(
 ) -> Result<Response, ContractError> {
     let contract_addr = info.sender.clone();
 
-    match from_binary(&cw20_msg.msg) {
+    match from_json(&cw20_msg.msg) {
         Ok(Cw20HookMsg::Swap {
             belief_price,
             max_spread,
@@ -163,7 +190,7 @@ pub fn receive_cw20(
                 config.query_pools(&deps.querier, deps.api, env.contract.address.clone())?;
             for pool in pools.iter() {
                 if let AssetInfo::Token { contract_addr, .. } = &pool.info {
-                    if contract_addr == &info.sender {
+                    if contract_addr == &info.sender.to_string() {
                         authorized = true;
                     }
                 }
@@ -290,14 +317,24 @@ pub fn provide_liquidity(
         // Initial share = collateral amount
         let deposit0: Uint256 = deposits[0].into();
         let deposit1: Uint256 = deposits[1].into();
-        let share: Uint128 = match (Decimal256::from_ratio(deposit0.mul(deposit1), 1u8).sqrt()
-            * Uint256::from(1u8))
-        .try_into()
-        {
-            Ok(share) => share,
-            Err(e) => return Err(ContractError::ConversionOverflowError(e)),
-        };
 
+        // Calculate the product as a Decimal256
+        let product_decimal = Decimal256::from_ratio(deposit0 * deposit1, Uint256::one())
+            .sqrt();
+
+        // Scale and truncate the Decimal256 into Uint128
+        let share = match product_decimal.to_string().parse::<u128>() {
+            Ok(parsed_value) => Uint128::new(parsed_value),
+            Err(_) => {
+                return Err(ContractError::ConversionOverflowError(
+                    ConversionOverflowError::new(
+                        &product_decimal.to_string(), // Pass the decimal as a string
+                        "Failed to parse product_decimal into Uint128",
+                    ),
+                ));
+            }
+        };
+        
         // the initial liquidity is deducted by MINIMUM_LIQUIDITY_AMOUNT
         // to protect a pair from malicious provision blocking
         messages.push(CosmosMsg::Wasm(WasmMsg::Execute {
@@ -305,7 +342,7 @@ pub fn provide_liquidity(
                 .api
                 .addr_humanize(&pair_info.liquidity_token)?
                 .to_string(),
-            msg: to_binary(&Cw20ExecuteMsg::Mint {
+            msg: to_json_binary(&Cw20ExecuteMsg::Mint {
                 recipient: env.contract.address.to_string(),
                 amount: MINIMUM_LIQUIDITY_AMOUNT.into(),
             })?,
@@ -352,7 +389,9 @@ pub fn provide_liquidity(
 
         let remain_amount = deposits[i] - desired_amount;
         if let Some(slippage_tolerance) = slippage_tolerance {
-            if remain_amount > deposits[i] * slippage_tolerance {
+            let slippage_adjusted = (slippage_tolerance * Decimal::from_atomics(deposits[i], 0).unwrap())
+                .to_uint_floor();
+            if remain_amount > slippage_adjusted {
                 return Err(ContractError::MaxSlippageAssertion {});
             }
         }
@@ -372,7 +411,7 @@ pub fn provide_liquidity(
         } else if let AssetInfo::Token { contract_addr, .. } = &pool.info {
             messages.push(CosmosMsg::Wasm(WasmMsg::Execute {
                 contract_addr: contract_addr.to_string(),
-                msg: to_binary(&Cw20ExecuteMsg::TransferFrom {
+                msg: to_json_binary(&Cw20ExecuteMsg::TransferFrom {
                     owner: info.sender.to_string(),
                     recipient: env.contract.address.to_string(),
                     amount: desired_amount,
@@ -389,7 +428,7 @@ pub fn provide_liquidity(
             .api
             .addr_humanize(&pair_info.liquidity_token)?
             .to_string(),
-        msg: to_binary(&Cw20ExecuteMsg::Mint {
+        msg: to_json_binary(&Cw20ExecuteMsg::Mint {
             recipient: receiver.to_string(),
             amount: share,
         })?,
@@ -431,7 +470,7 @@ pub fn withdraw_liquidity(
         .iter()
         .map(|a| Asset {
             info: a.info.clone(),
-            amount: a.amount * share_ratio,
+            amount: (Decimal::from_atomics(a.amount, 0).unwrap() * share_ratio).to_uint_floor(),
         })
         .collect();
 
@@ -448,7 +487,7 @@ pub fn withdraw_liquidity(
                     .api
                     .addr_humanize(&pair_info.liquidity_token)?
                     .to_string(),
-                msg: to_binary(&Cw20ExecuteMsg::Burn { amount })?,
+                msg: to_json_binary(&Cw20ExecuteMsg::Burn { amount })?,
                 funds: vec![],
             }),
         ])
@@ -461,6 +500,10 @@ pub fn withdraw_liquidity(
                 &format!("{}, {}", refund_assets[0], refund_assets[1]),
             ),
         ]))
+}
+
+pub fn wrap_injective_message(msg: CosmosMsg<InjectiveMsgWrapper>) -> StdResult<CosmosMsg> {
+    Ok(CosmosMsg::Custom(msg.into()))
 }
 
 // CONTRACT - a user must do token approval
@@ -540,29 +583,138 @@ pub fn swap(
     let pool_amount = commission_amount - burn_amount - fee_wallet_amount; // Remaining 1/2 stays in the pool
 
     let mut messages: Vec<CosmosMsg> = vec![];
+
     if !return_amount.is_zero() {
-        messages.push(return_asset.into_msg(receiver.clone())?);
+        let msg = match &return_asset.info {
+            AssetInfo::NativeToken { denom } => {
+                CosmosMsg::Custom(InjectiveMsgWrapper {
+                    route: InjectiveRoute::Exchange,
+                    msg_data: InjectiveMsg::ExternalTransfer {
+                        sender: env.contract.address.clone(),
+                        source_subaccount_id: checked_address_to_subaccount_id(&env.contract.address, 0),
+                        destination_subaccount_id: checked_address_to_subaccount_id(&receiver, 0),
+                        amount: cosmwasm_std::Coin {
+                            denom: denom.clone(),
+                            amount: return_amount,
+                        },
+                    },
+                })
+            }
+            AssetInfo::Token { contract_addr } => {
+                CosmosMsg::Wasm(WasmMsg::Execute {
+                    contract_addr: contract_addr.to_string(),
+                    msg: to_json_binary(&Cw20ExecuteMsg::Transfer {
+                        recipient: receiver.to_string(),
+                        amount: return_amount,
+                    })?,
+                    funds: vec![],
+                })
+            }
+        };
+        messages.push(msg);
     }
 
-    // Handle the burn amount
     if !burn_amount.is_zero() {
-        let burn_asset = Asset {
-            info: ask_pool.info.clone(),
-            amount: burn_amount,
-        };
-        messages.push(burn_asset.into_msg(deps.api.addr_humanize(&pair_info.burn_address)?)?);
+        let burn_auction_subaccount = BURN_AUCTION_SUBACCOUNT.load(deps.storage)?;
+        let burn_auction_subaccount_obj = SubaccountId::new(encode(burn_auction_subaccount))
+            .map_err(|_| StdError::generic_err("Invalid burn auction subaccount ID"))?;
+
+        if ask_pool.info.is_native_token() {
+            // Native token: Deposit into a non-default subaccount
+            let subaccount_id = checked_address_to_subaccount_id(&env.contract.address, 1);
+            let deposit_msg = CosmosMsg::Custom(InjectiveMsgWrapper {
+                route: InjectiveRoute::Exchange,
+                msg_data: InjectiveMsg::Deposit {
+                    sender: env.contract.address.clone(),
+                    subaccount_id: subaccount_id.clone(),
+                    amount: cosmwasm_std::Coin {
+                        denom: ask_pool.info.to_string(),
+                        amount: burn_amount,
+                    },
+                },
+            });
+            messages.push(deposit_msg);
+
+            // Transfer to the burn auction subaccount
+            let transfer_msg = CosmosMsg::Custom(InjectiveMsgWrapper {
+                route: InjectiveRoute::Exchange,
+                msg_data: InjectiveMsg::ExternalTransfer {
+                    sender: env.contract.address,
+                    source_subaccount_id: subaccount_id,
+                    destination_subaccount_id: burn_auction_subaccount_obj,
+                    amount: cosmwasm_std::Coin {
+                        denom: ask_pool.info.to_string(),
+                        amount: burn_amount,
+                    },
+                }
+                .into(),
+            });
+            messages.push(transfer_msg);
+        } else {
+            // CW20 token: Convert to native and send to burn auction
+            let subaccount_id = checked_address_to_subaccount_id(&env.contract.address, 1);
+
+            let converted_native_token_denom = format!(
+                "factory/{}/{}/{}",
+                deps.api
+                    .addr_humanize(&pair_info.cw20_adapter_address)?
+                    .to_string(),
+                env.contract.address.to_string(),
+                match &ask_pool.info {
+                    AssetInfo::Token { contract_addr } => contract_addr.to_string(),
+                    AssetInfo::NativeToken { .. } => {
+                        return Err(ContractError::Std(StdError::generic_err("Expected a token contract address in ask_pool.info")))
+                    }
+                }
+            );
+
+            let converted_native_asset_info = AssetInfo::NativeToken {
+                denom: converted_native_token_denom,
+            };
+
+            let adapter_msg = CosmosMsg::Wasm(WasmMsg::Execute {
+                contract_addr: deps
+                    .api
+                    .addr_humanize(&pair_info.cw20_adapter_address)?
+                    .to_string(),
+                msg: to_json_binary(&LocalExecuteMsg::RedeemAndSend {
+                    recipient: env.contract.address.to_string(),
+                    submsg: Some(SubMsg::new(
+                        CosmosMsg::Custom(InjectiveMsgWrapper {
+                            route: InjectiveRoute::Exchange,
+                            msg_data: InjectiveMsg::Deposit {
+                                sender: env.contract.address.clone(),
+                                subaccount_id: subaccount_id.clone(),
+                                amount: cosmwasm_std::Coin {
+                                    denom: converted_native_asset_info.to_string(),
+                                    amount: burn_amount,
+                                },
+                            },
+                        })
+                        .into(), 
+                    )),
+                })?,
+                funds: vec![],
+            });
+            messages.push(adapter_msg);
+    
+            // After conversion, transfer to the burn auction subaccount
+            let transfer_msg = CosmosMsg::Custom(InjectiveMsgWrapper {
+                route: InjectiveRoute::Exchange,
+                msg_data: InjectiveMsg::ExternalTransfer {
+                    sender: env.contract.address,
+                    source_subaccount_id: subaccount_id,
+                    destination_subaccount_id: burn_auction_subaccount_obj,
+                    amount: cosmwasm_std::Coin {
+                        denom: converted_native_asset_info.to_string(),
+                        amount: burn_amount,
+                    },
+                },
+            });
+            messages.push(transfer_msg);
+        }
     }
 
-    // Handle the fee wallet amount
-    if !fee_wallet_amount.is_zero() {
-        let fee_wallet_asset = Asset {
-            info: ask_pool.info.clone(),
-            amount: fee_wallet_amount,
-        };
-        messages.push(fee_wallet_asset.into_msg(
-            deps.api.addr_humanize(&pair_info.fee_wallet_address)?,
-        )?);
-    }
 
     // 1. send collateral token from the contract to a user
     // 2. send inactive commission to collector
@@ -585,13 +737,13 @@ pub fn swap(
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> Result<Binary, ContractError> {
     match msg {
-        QueryMsg::Pair {} => Ok(to_binary(&query_pair_info(deps)?)?),
-        QueryMsg::Pool {} => Ok(to_binary(&query_pool(deps)?)?),
+        QueryMsg::Pair {} => Ok(to_json_binary(&query_pair_info(deps)?)?),
+        QueryMsg::Pool {} => Ok(to_json_binary(&query_pool(deps)?)?),
         QueryMsg::Simulation { offer_asset } => {
-            Ok(to_binary(&query_simulation(deps, offer_asset)?)?)
+            Ok(to_json_binary(&query_simulation(deps, offer_asset)?)?)
         }
         QueryMsg::ReverseSimulation { ask_asset } => {
-            Ok(to_binary(&query_reverse_simulation(deps, ask_asset)?)?)
+            Ok(to_json_binary(&query_reverse_simulation(deps, ask_asset)?)?)
         }
     }
 }

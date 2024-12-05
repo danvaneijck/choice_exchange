@@ -12,7 +12,7 @@
         "update_config": {
           "type": "object",
           "properties": {
-            "burn_address": {
+            "cw20_adapter_address": {
               "type": [
                 "string",
                 "null"

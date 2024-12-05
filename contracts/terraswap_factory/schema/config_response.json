@@ -3,14 +3,14 @@
   "title": "ConfigResponse",
   "type": "object",
   "required": [
-    "burn_address",
+    "cw20_adapter_address",
     "fee_wallet_address",
     "owner",
     "pair_code_id",
     "token_code_id"
   ],
   "properties": {
-    "burn_address": {
+    "cw20_adapter_address": {
       "type": "string"
     },
     "fee_wallet_address": {

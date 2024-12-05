@@ -64,7 +64,7 @@
       "required": [
         "asset_decimals",
         "asset_infos",
-        "burn_address",
+        "cw20_adapter_address",
         "contract_addr",
         "fee_wallet_address",
         "liquidity_token"
@@ -88,7 +88,7 @@
           "maxItems": 2,
           "minItems": 2
         },
-        "burn_address": {
+        "cw20_adapter_address": {
           "type": "string"
         },
         "contract_addr": {

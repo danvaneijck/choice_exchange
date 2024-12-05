@@ -14,7 +14,7 @@ pub struct InstantiateMsg {
     pub token_code_id: u64,
     pub asset_decimals: [u8; 2],
 
-    pub burn_address: String, // New field
+    pub cw20_adapter_address: String, // New field
     pub fee_wallet_address: String, // New field
 }
 

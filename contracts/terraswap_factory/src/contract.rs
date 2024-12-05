@@ -1,7 +1,7 @@
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
 use cosmwasm_std::{
-    coin, to_binary, Addr, Binary, Coin, CosmosMsg, Deps, DepsMut, Env, MessageInfo, Reply,
+    coin, to_json_binary, Addr, Binary, Coin, CosmosMsg, Deps, DepsMut, Env, MessageInfo, Reply,
     ReplyOn, Response, StdError, StdResult, SubMsg, WasmMsg,
 };
 use cw2::set_contract_version;
@@ -46,8 +46,8 @@ pub fn instantiate(
         token_code_id: msg.token_code_id,
         pair_code_id: msg.pair_code_id,
 
-        burn_address: deps.api.addr_canonicalize(&msg.burn_address)?, // Store burn address
-        fee_wallet_address: deps.api.addr_canonicalize(&msg.fee_wallet_address)?, // Store fee wallet address
+        cw20_adapter_address: deps.api.addr_canonicalize(&msg.cw20_adapter_address)?, 
+        fee_wallet_address: deps.api.addr_canonicalize(&msg.fee_wallet_address)?, 
     };
 
     CONFIG.save(deps.storage, &config)?;
@@ -62,9 +62,9 @@ pub fn execute(deps: DepsMut, env: Env, info: MessageInfo, msg: ExecuteMsg) -> S
             owner,
             token_code_id,
             pair_code_id,
-            burn_address,       // New field
+            cw20_adapter_address,       // New field
             fee_wallet_address, // New field
-        } => execute_update_config(deps, env, info, owner, token_code_id, pair_code_id, burn_address, fee_wallet_address),
+        } => execute_update_config(deps, env, info, owner, token_code_id, pair_code_id, cw20_adapter_address, fee_wallet_address),
         ExecuteMsg::CreatePair { assets } => execute_create_pair(deps, env, info, assets),
         ExecuteMsg::AddNativeTokenDecimals { denom, decimals } => {
             execute_add_native_token_decimals(deps, env, info, denom, decimals)
@@ -83,7 +83,7 @@ pub fn execute_update_config(
     owner: Option<String>,
     token_code_id: Option<u64>,
     pair_code_id: Option<u64>,
-    burn_address: Option<String>, // New field
+    cw20_adapter_address: Option<String>, // New field
     fee_wallet_address: Option<String>, // New field
 ) -> StdResult<Response> {
     let mut config: Config = CONFIG.load(deps.storage)?;
@@ -108,8 +108,8 @@ pub fn execute_update_config(
         config.pair_code_id = pair_code_id;
     }
 
-    if let Some(burn_address) = burn_address {
-        config.burn_address = deps.api.addr_canonicalize(&burn_address)?;
+    if let Some(cw20_adapter_address) = cw20_adapter_address {
+        config.cw20_adapter_address = deps.api.addr_canonicalize(&cw20_adapter_address)?;
     }
 
     if let Some(fee_wallet_address) = fee_wallet_address {
@@ -188,11 +188,11 @@ pub fn execute_create_pair(
                 funds: vec![],
                 admin: Some(env.contract.address.to_string()),
                 label: "pair".to_string(),
-                msg: to_binary(&PairInstantiateMsg {
+                msg: to_json_binary(&PairInstantiateMsg {
                     asset_infos,
                     token_code_id: config.token_code_id,
                     asset_decimals,
-                    burn_address: deps.api.addr_humanize(&config.burn_address)?.to_string(), // Pass burn address
+                    cw20_adapter_address: deps.api.addr_humanize(&config.cw20_adapter_address)?.to_string(), // Pass burn address
                     fee_wallet_address: deps.api.addr_humanize(&config.fee_wallet_address)?.to_string(), // Pass fee wallet address
                 })?,
             }),
@@ -250,7 +250,7 @@ pub fn execute_migrate_pair(
         Response::new().add_message(CosmosMsg::Wasm(WasmMsg::Migrate {
             contract_addr: contract,
             new_code_id: code_id,
-            msg: to_binary(&PairMigrateMsg {})?,
+            msg: to_json_binary(&PairMigrateMsg {})?,
         })),
     )
 }
@@ -278,7 +278,7 @@ pub fn reply(deps: DepsMut, env: Env, msg: Reply) -> StdResult<Response> {
     ];
 
     let factory_config: Config = CONFIG.load(deps.storage)?;
-    let burn_address = factory_config.burn_address.clone();
+    let cw20_adapter_address = factory_config.cw20_adapter_address.clone();
     let fee_wallet_address = factory_config.fee_wallet_address.clone();
 
     PAIRS.save(
@@ -289,7 +289,7 @@ pub fn reply(deps: DepsMut, env: Env, msg: Reply) -> StdResult<Response> {
             contract_addr: deps.api.addr_canonicalize(pair_contract)?,
             asset_infos: raw_infos,
             asset_decimals: tmp_pair_info.asset_decimals,
-            burn_address,       // Add burn address
+            cw20_adapter_address,       // Add burn address
             fee_wallet_address, // Add fee wallet address
         },
     )?;
@@ -308,7 +308,7 @@ pub fn reply(deps: DepsMut, env: Env, msg: Reply) -> StdResult<Response> {
                 let contract_addr = deps.api.addr_humanize(contract_addr)?.to_string();
                 messages.push(CosmosMsg::Wasm(WasmMsg::Execute {
                     contract_addr: contract_addr.to_string(),
-                    msg: to_binary(&Cw20ExecuteMsg::IncreaseAllowance {
+                    msg: to_json_binary(&Cw20ExecuteMsg::IncreaseAllowance {
                         spender: pair_contract.to_string(),
                         amount: asset.amount,
                         expires: None,
@@ -317,7 +317,7 @@ pub fn reply(deps: DepsMut, env: Env, msg: Reply) -> StdResult<Response> {
                 }));
                 messages.push(CosmosMsg::Wasm(WasmMsg::Execute {
                     contract_addr,
-                    msg: to_binary(&Cw20ExecuteMsg::TransferFrom {
+                    msg: to_json_binary(&Cw20ExecuteMsg::TransferFrom {
                         owner: tmp_pair_info.sender.to_string(),
                         recipient: env.contract.address.to_string(),
                         amount: asset.amount,
@@ -330,7 +330,7 @@ pub fn reply(deps: DepsMut, env: Env, msg: Reply) -> StdResult<Response> {
         funds.sort_by(|a, b| a.denom.cmp(&b.denom));
         messages.push(CosmosMsg::Wasm(WasmMsg::Execute {
             contract_addr: pair_contract.to_string(),
-            msg: to_binary(&PairExecuteMsg::ProvideLiquidity {
+            msg: to_json_binary(&PairExecuteMsg::ProvideLiquidity {
                 assets,
                 receiver: Some(tmp_pair_info.sender.to_string()),
                 deadline: None,
@@ -351,13 +351,13 @@ pub fn reply(deps: DepsMut, env: Env, msg: Reply) -> StdResult<Response> {
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
     match msg {
-        QueryMsg::Config {} => to_binary(&query_config(deps)?),
-        QueryMsg::Pair { asset_infos } => to_binary(&query_pair(deps, asset_infos)?),
+        QueryMsg::Config {} => to_json_binary(&query_config(deps)?),
+        QueryMsg::Pair { asset_infos } => to_json_binary(&query_pair(deps, asset_infos)?),
         QueryMsg::Pairs { start_after, limit } => {
-            to_binary(&query_pairs(deps, start_after, limit)?)
+            to_json_binary(&query_pairs(deps, start_after, limit)?)
         }
         QueryMsg::NativeTokenDecimals { denom } => {
-            to_binary(&query_native_token_decimal(deps, denom)?)
+            to_json_binary(&query_native_token_decimal(deps, denom)?)
         }
     }
 }
@@ -369,8 +369,8 @@ pub fn query_config(deps: Deps) -> StdResult<ConfigResponse> {
         token_code_id: state.token_code_id,
         pair_code_id: state.pair_code_id,
 
-        burn_address: deps.api.addr_humanize(&state.burn_address)?.to_string(), // Return burn address
-        fee_wallet_address: deps.api.addr_humanize(&state.fee_wallet_address)?.to_string(), // Return fee wallet address
+        cw20_adapter_address: deps.api.addr_humanize(&state.cw20_adapter_address)?.to_string(), 
+        fee_wallet_address: deps.api.addr_humanize(&state.fee_wallet_address)?.to_string(), 
     };
 
     Ok(resp)

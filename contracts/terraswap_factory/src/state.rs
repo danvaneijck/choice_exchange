@@ -11,7 +11,7 @@ pub struct Config {
     pub pair_code_id: u64,
     pub token_code_id: u64,
 
-    pub burn_address: CanonicalAddr, // New field
+    pub cw20_adapter_address: CanonicalAddr, // New field
     pub fee_wallet_address: CanonicalAddr, // New field
 }
 
