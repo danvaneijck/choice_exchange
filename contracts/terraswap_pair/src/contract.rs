@@ -6,9 +6,9 @@ use crate::state::PAIR_INFO;
 use cosmwasm_std::entry_point;
 
 use cosmwasm_std::{
-    coins, from_binary, to_binary, Addr, BankMsg, Binary, CanonicalAddr, CosmosMsg, Decimal,
+    coins, from_json, to_json_binary, Addr, BankMsg, Binary, CanonicalAddr, CosmosMsg, Decimal,
     Decimal256, Deps, DepsMut, Env, MessageInfo, Reply, ReplyOn, Response, StdError, StdResult,
-    SubMsg, Uint128, Uint256, WasmMsg,
+    SubMsg, Uint128, Uint256, WasmMsg, Coin
 };
 
 use cw2::set_contract_version;
@@ -26,6 +26,8 @@ use terraswap::pair::{
 use terraswap::querier::query_token_info;
 use terraswap::token::InstantiateMsg as TokenInstantiateMsg;
 use terraswap::util::migrate_version;
+
+use serde::{Deserialize, Serialize};
 
 // version info for migration info
 const CONTRACT_NAME: &str = "crates.io:terraswap-pair";
@@ -66,7 +68,7 @@ pub fn instantiate(
         msg: WasmMsg::Instantiate {
             admin: None,
             code_id: msg.token_code_id,
-            msg: to_binary(&TokenInstantiateMsg {
+            msg: to_json_binary(&TokenInstantiateMsg {
                 name: "terraswap liquidity token".to_string(),
                 symbol: "uLP".to_string(),
                 decimals: 6,
@@ -149,7 +151,7 @@ pub fn receive_cw20(
 ) -> Result<Response, ContractError> {
     let contract_addr = info.sender.clone();
 
-    match from_binary(&cw20_msg.msg) {
+    match from_json(&cw20_msg.msg) {
         Ok(Cw20HookMsg::Swap {
             belief_price,
             max_spread,
@@ -305,7 +307,7 @@ pub fn provide_liquidity(
                 .api
                 .addr_humanize(&pair_info.liquidity_token)?
                 .to_string(),
-            msg: to_binary(&Cw20ExecuteMsg::Mint {
+            msg: to_json_binary(&Cw20ExecuteMsg::Mint {
                 recipient: env.contract.address.to_string(),
                 amount: MINIMUM_LIQUIDITY_AMOUNT.into(),
             })?,
@@ -372,7 +374,7 @@ pub fn provide_liquidity(
         } else if let AssetInfo::Token { contract_addr, .. } = &pool.info {
             messages.push(CosmosMsg::Wasm(WasmMsg::Execute {
                 contract_addr: contract_addr.to_string(),
-                msg: to_binary(&Cw20ExecuteMsg::TransferFrom {
+                msg: to_json_binary(&Cw20ExecuteMsg::TransferFrom {
                     owner: info.sender.to_string(),
                     recipient: env.contract.address.to_string(),
                     amount: desired_amount,
@@ -389,7 +391,7 @@ pub fn provide_liquidity(
             .api
             .addr_humanize(&pair_info.liquidity_token)?
             .to_string(),
-        msg: to_binary(&Cw20ExecuteMsg::Mint {
+        msg: to_json_binary(&Cw20ExecuteMsg::Mint {
             recipient: receiver.to_string(),
             amount: share,
         })?,
@@ -448,7 +450,7 @@ pub fn withdraw_liquidity(
                     .api
                     .addr_humanize(&pair_info.liquidity_token)?
                     .to_string(),
-                msg: to_binary(&Cw20ExecuteMsg::Burn { amount })?,
+                msg: to_json_binary(&Cw20ExecuteMsg::Burn { amount })?,
                 funds: vec![],
             }),
         ])
@@ -461,6 +463,12 @@ pub fn withdraw_liquidity(
                 &format!("{}, {}", refund_assets[0], refund_assets[1]),
             ),
         ]))
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+#[serde(rename_all = "snake_case")]
+struct SendNativeMsg {
+    asset: Asset,
 }
 
 // CONTRACT - a user must do token approval
@@ -535,9 +543,10 @@ pub fn swap(
 
     let receiver = to.unwrap_or_else(|| sender.clone());
 
-    let burn_amount = commission_amount.multiply_ratio(1u128, 4u128); // 1/4 of the fee
-    let fee_wallet_amount = commission_amount.multiply_ratio(1u128, 4u128); // 1/4 of the fee
-    let pool_amount = commission_amount - burn_amount - fee_wallet_amount; // Remaining 1/2 stays in the pool
+    let total_fee = commission_amount; // Total fee, assumed to be 0.3% of the transaction
+    let lp_amount = total_fee.multiply_ratio(2u128, 3u128); // 0.2% (2/3 of the total fee)
+    let fee_wallet_amount = total_fee.multiply_ratio(1u128, 6u128); // 0.05% (1/6 of the total fee)
+    let burn_amount = total_fee.multiply_ratio(1u128, 6u128); // 0.05% (1/6 of the total fee)
 
     let mut messages: Vec<CosmosMsg> = vec![];
     if !return_amount.is_zero() {
@@ -550,7 +559,33 @@ pub fn swap(
             info: ask_pool.info.clone(),
             amount: burn_amount,
         };
-        messages.push(burn_asset.into_msg(deps.api.addr_humanize(&pair_info.burn_address)?)?);
+
+        if let AssetInfo::NativeToken { denom } = &burn_asset.info {
+            // Call send_native for native tokens
+            let burn_handler_address = deps.api.addr_humanize(&pair_info.burn_address)?;
+            messages.push(CosmosMsg::Wasm(WasmMsg::Execute {
+                contract_addr: burn_handler_address.to_string(),
+                msg: to_json_binary(&SendNativeMsg {
+                    asset: burn_asset.clone(),
+                })?,
+                funds: vec![Coin {
+                    denom: denom.clone(),
+                    amount: burn_amount,
+                }],
+            }));
+        } else if let AssetInfo::Token { contract_addr } = &burn_asset.info {
+            // Send CW20 tokens directly to the burn address
+            let burn_handler_address = deps.api.addr_humanize(&pair_info.burn_address)?;
+            messages.push(CosmosMsg::Wasm(WasmMsg::Execute {
+                contract_addr: contract_addr.clone(),
+                msg: to_json_binary(&Cw20ExecuteMsg::Send {
+                    contract: burn_handler_address.to_string(),
+                    amount: burn_amount,
+                    msg: Binary::default(),
+                })?,
+                funds: vec![],
+            }));
+        }
     }
 
     // Handle the fee wallet amount
@@ -578,20 +613,20 @@ pub fn swap(
         ("commission_amount", &commission_amount.to_string()),
         ("burn_amount", &burn_amount.to_string()),
         ("fee_wallet_amount", &fee_wallet_amount.to_string()),
-        ("pool_amount", &pool_amount.to_string()),
+        ("pool_amount", &lp_amount.to_string()),
     ]))
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> Result<Binary, ContractError> {
     match msg {
-        QueryMsg::Pair {} => Ok(to_binary(&query_pair_info(deps)?)?),
-        QueryMsg::Pool {} => Ok(to_binary(&query_pool(deps)?)?),
+        QueryMsg::Pair {} => Ok(to_json_binary(&query_pair_info(deps)?)?),
+        QueryMsg::Pool {} => Ok(to_json_binary(&query_pool(deps)?)?),
         QueryMsg::Simulation { offer_asset } => {
-            Ok(to_binary(&query_simulation(deps, offer_asset)?)?)
+            Ok(to_json_binary(&query_simulation(deps, offer_asset)?)?)
         }
         QueryMsg::ReverseSimulation { ask_asset } => {
-            Ok(to_binary(&query_reverse_simulation(deps, ask_asset)?)?)
+            Ok(to_json_binary(&query_reverse_simulation(deps, ask_asset)?)?)
         }
     }
 }

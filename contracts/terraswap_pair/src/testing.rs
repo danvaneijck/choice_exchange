@@ -8,7 +8,7 @@ use terraswap::mock_querier::mock_dependencies;
 
 use cosmwasm_std::testing::{mock_env, mock_info, MOCK_CONTRACT_ADDR};
 use cosmwasm_std::{
-    attr, to_binary, BankMsg, Coin, CosmosMsg, Decimal, Reply, ReplyOn, Response, StdError, SubMsg,
+    attr, to_json_binary, BankMsg, Coin, CosmosMsg, Decimal, Reply, ReplyOn, Response, StdError, SubMsg,
     SubMsgResponse, SubMsgResult, Uint128, WasmMsg,
 };
 use cw20::{Cw20ExecuteMsg, Cw20ReceiveMsg, MinterResponse};
@@ -47,7 +47,7 @@ fn proper_initialization() {
         vec![SubMsg {
             msg: WasmMsg::Instantiate {
                 code_id: 10u64,
-                msg: to_binary(&TokenInstantiateMsg {
+                msg: to_json_binary(&TokenInstantiateMsg {
                     name: "terraswap liquidity token".to_string(),
                     symbol: "uLP".to_string(),
                     decimals: 6,
@@ -234,7 +234,7 @@ fn provide_liquidity() {
         liquidity_to_contract_msg,
         &SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
             contract_addr: "liquidity0000".to_string(),
-            msg: to_binary(&Cw20ExecuteMsg::Mint {
+            msg: to_json_binary(&Cw20ExecuteMsg::Mint {
                 recipient: MOCK_CONTRACT_ADDR.to_string(),
                 amount: 1_000u128.into(),
             })
@@ -247,7 +247,7 @@ fn provide_liquidity() {
         transfer_from_msg,
         &SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
             contract_addr: "asset0000".to_string(),
-            msg: to_binary(&Cw20ExecuteMsg::TransferFrom {
+            msg: to_json_binary(&Cw20ExecuteMsg::TransferFrom {
                 owner: "addr0000".to_string(),
                 recipient: MOCK_CONTRACT_ADDR.to_string(),
                 amount: Uint128::from(1_100u128),
@@ -260,7 +260,7 @@ fn provide_liquidity() {
         mint_msg,
         &SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
             contract_addr: "liquidity0000".to_string(),
-            msg: to_binary(&Cw20ExecuteMsg::Mint {
+            msg: to_json_binary(&Cw20ExecuteMsg::Mint {
                 recipient: "addr0000".to_string(),
                 amount: Uint128::from(100u128),
             })
@@ -387,7 +387,7 @@ fn provide_liquidity() {
         transfer_from_msg,
         &SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
             contract_addr: "asset0000".to_string(),
-            msg: to_binary(&Cw20ExecuteMsg::TransferFrom {
+            msg: to_json_binary(&Cw20ExecuteMsg::TransferFrom {
                 owner: "addr0000".to_string(),
                 recipient: MOCK_CONTRACT_ADDR.to_string(),
                 amount: Uint128::from(100u128),
@@ -400,7 +400,7 @@ fn provide_liquidity() {
         mint_msg,
         &SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
             contract_addr: "liquidity0000".to_string(),
-            msg: to_binary(&Cw20ExecuteMsg::Mint {
+            msg: to_json_binary(&Cw20ExecuteMsg::Mint {
                 recipient: "staking0000".to_string(), // LP tokens sent to specified receiver
                 amount: Uint128::from(50u128),
             })
@@ -503,7 +503,7 @@ fn provide_liquidity() {
         transfer_from_msg,
         &SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
             contract_addr: "asset0000".to_string(),
-            msg: to_binary(&Cw20ExecuteMsg::TransferFrom {
+            msg: to_json_binary(&Cw20ExecuteMsg::TransferFrom {
                 owner: "addr0001".to_string(),
                 recipient: MOCK_CONTRACT_ADDR.to_string(),
                 amount: Uint128::from(98u128),
@@ -517,7 +517,7 @@ fn provide_liquidity() {
         mint_msg,
         &SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
             contract_addr: "liquidity0000".to_string(),
-            msg: to_binary(&Cw20ExecuteMsg::Mint {
+            msg: to_json_binary(&Cw20ExecuteMsg::Mint {
                 recipient: "addr0001".to_string(), // LP tokens sent to specified receiver
                 amount: Uint128::from(98u128),
             })
@@ -584,7 +584,7 @@ fn withdraw_liquidity() {
     // withdraw liquidity
     let msg = ExecuteMsg::Receive(Cw20ReceiveMsg {
         sender: "addr0000".to_string(),
-        msg: to_binary(&Cw20HookMsg::WithdrawLiquidity {
+        msg: to_json_binary(&Cw20HookMsg::WithdrawLiquidity {
             min_assets: None,
             deadline: None,
         })
@@ -614,7 +614,7 @@ fn withdraw_liquidity() {
         msg_refund_1,
         &SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
             contract_addr: "asset0000".to_string(),
-            msg: to_binary(&Cw20ExecuteMsg::Transfer {
+            msg: to_json_binary(&Cw20ExecuteMsg::Transfer {
                 recipient: "addr0000".to_string(),
                 amount: Uint128::from(100u128),
             })
@@ -626,7 +626,7 @@ fn withdraw_liquidity() {
         msg_burn_liquidity,
         &SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
             contract_addr: "liquidity0000".to_string(),
-            msg: to_binary(&Cw20ExecuteMsg::Burn {
+            msg: to_json_binary(&Cw20ExecuteMsg::Burn {
                 amount: Uint128::from(100u128),
             })
             .unwrap(),
@@ -646,7 +646,7 @@ fn withdraw_liquidity() {
     // withdraw liquidity with assert min_assets
     let msg = ExecuteMsg::Receive(Cw20ReceiveMsg {
         sender: "addr0000".to_string(),
-        msg: to_binary(&Cw20HookMsg::WithdrawLiquidity {
+        msg: to_json_binary(&Cw20HookMsg::WithdrawLiquidity {
             min_assets: Some([
                 Asset {
                     info: AssetInfo::NativeToken {
@@ -682,7 +682,7 @@ fn withdraw_liquidity() {
     // failed to withdraw liquidity due to deadline
     let msg = ExecuteMsg::Receive(Cw20ReceiveMsg {
         sender: "addr0000".to_string(),
-        msg: to_binary(&Cw20HookMsg::WithdrawLiquidity {
+        msg: to_json_binary(&Cw20HookMsg::WithdrawLiquidity {
             min_assets: None,
             deadline: Some(100u64),
         })
@@ -808,9 +808,10 @@ fn try_native_to_token() {
     let expected_commission_amount =
         expected_ret_amount.multiply_ratio(3u128, 1000u128) + Uint128::from(1u8); // 0.3%, round up
 
-    let expected_burn_amount = expected_commission_amount.multiply_ratio(1u128, 4u128);
-    let expected_fee_wallet_amount = expected_commission_amount.multiply_ratio(1u128, 4u128);
-    let expected_pool_amount = expected_commission_amount - expected_burn_amount - expected_fee_wallet_amount;
+    let expected_lp_amount = expected_commission_amount.multiply_ratio(2u128, 3u128); // 0.2% (2/3 of the total fee)
+    let expected_fee_wallet_amount = expected_commission_amount.multiply_ratio(1u128, 6u128); // 0.05% (1/6 of the total fee)
+    let expected_burn_amount = expected_commission_amount.multiply_ratio(1u128, 6u128); // 0.05% (1/6 of the total fee)
+    
 
     let expected_return_amount = expected_ret_amount
         .checked_sub(expected_commission_amount)
@@ -882,14 +883,14 @@ fn try_native_to_token() {
 
             attr("burn_amount", expected_burn_amount.to_string()),
             attr("fee_wallet_amount", expected_fee_wallet_amount.to_string()),
-            attr("pool_amount", expected_pool_amount.to_string()),
+            attr("pool_amount", expected_lp_amount.to_string()),
         ]
     );
 
     assert_eq!(
         &SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
             contract_addr: "asset0000".to_string(),
-            msg: to_binary(&Cw20ExecuteMsg::Transfer {
+            msg: to_json_binary(&Cw20ExecuteMsg::Transfer {
                 recipient: "addr0000".to_string(),
                 amount: expected_return_amount,
             })
@@ -987,7 +988,7 @@ fn try_token_to_native() {
     let msg = ExecuteMsg::Receive(Cw20ReceiveMsg {
         sender: "addr0000".to_string(),
         amount: offer_amount,
-        msg: to_binary(&Cw20HookMsg::Swap {
+        msg: to_json_binary(&Cw20HookMsg::Swap {
             belief_price: None,
             max_spread: None,
             to: None,
@@ -1014,9 +1015,9 @@ fn try_token_to_native() {
         .unwrap();
 
 
-    let expected_burn_amount = expected_commission_amount.multiply_ratio(1u128, 4u128);
-    let expected_fee_wallet_amount = expected_commission_amount.multiply_ratio(1u128, 4u128);
-    let expected_pool_amount = expected_commission_amount - expected_burn_amount - expected_fee_wallet_amount;
+    let expected_lp_amount = expected_commission_amount.multiply_ratio(2u128, 3u128); // 0.2% (2/3 of the total fee)
+    let expected_fee_wallet_amount = expected_commission_amount.multiply_ratio(1u128, 6u128); // 0.05% (1/6 of the total fee)
+    let expected_burn_amount = expected_commission_amount.multiply_ratio(1u128, 6u128); // 0.05% (1/6 of the total fee)
 
     // check simulation res
     // return asset token balance as normal
@@ -1088,7 +1089,7 @@ fn try_token_to_native() {
             
             attr("burn_amount", expected_burn_amount.to_string()),
             attr("fee_wallet_amount", expected_fee_wallet_amount.to_string()),
-            attr("pool_amount", expected_pool_amount.to_string()),
+            attr("pool_amount", expected_lp_amount.to_string()),
         ]
     );
 
@@ -1107,7 +1108,7 @@ fn try_token_to_native() {
     let msg = ExecuteMsg::Receive(Cw20ReceiveMsg {
         sender: "addr0000".to_string(),
         amount: offer_amount,
-        msg: to_binary(&Cw20HookMsg::Swap {
+        msg: to_json_binary(&Cw20HookMsg::Swap {
             belief_price: None,
             max_spread: None,
             to: None,

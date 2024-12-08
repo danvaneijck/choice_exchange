@@ -6,7 +6,7 @@ use crate::querier::{
 
 use cosmwasm_std::testing::MOCK_CONTRACT_ADDR;
 use cosmwasm_std::{
-    coin, to_binary, Addr, Api, BankMsg, Coin, CosmosMsg, MessageInfo, StdError, SubMsg, Uint128,
+    coin, to_json_binary, Addr, Api, BankMsg, Coin, CosmosMsg, MessageInfo, StdError, SubMsg, Uint128,
     WasmMsg,
 };
 use cw20::Cw20ExecuteMsg;
@@ -195,7 +195,7 @@ fn test_asset() {
             .unwrap(),
         CosmosMsg::Wasm(WasmMsg::Execute {
             contract_addr: "asset0000".to_string(),
-            msg: to_binary(&Cw20ExecuteMsg::Transfer {
+            msg: to_json_binary(&Cw20ExecuteMsg::Transfer {
                 recipient: "addr0000".to_string(),
                 amount: Uint128::from(123123u128),
             })
@@ -210,7 +210,7 @@ fn test_asset() {
             .unwrap(),
         SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
             contract_addr: "asset0000".to_string(),
-            msg: to_binary(&Cw20ExecuteMsg::Transfer {
+            msg: to_json_binary(&Cw20ExecuteMsg::Transfer {
                 recipient: "addr0000".to_string(),
                 amount: Uint128::from(123123u128),
             })
@@ -394,6 +394,8 @@ fn query_terraswap_pair_contract() {
                 contract_addr: "pair0000".to_string(),
                 liquidity_token: "liquidity0000".to_string(),
                 asset_decimals: [6u8, 6u8],
+                burn_address: "burn0000".to_string(),
+                fee_wallet_address: "fee_wallet_address0000".to_string()
             },
         )],
         &[("uusd".to_string(), 6u8)],
