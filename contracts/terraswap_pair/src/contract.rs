@@ -467,8 +467,8 @@ pub fn withdraw_liquidity(
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 #[serde(rename_all = "snake_case")]
-struct SendNativeMsg {
-    asset: Asset,
+enum BurnManagerMsg {
+    SendNative { asset: Asset }
 }
 
 // CONTRACT - a user must do token approval
@@ -565,7 +565,7 @@ pub fn swap(
             let burn_handler_address = deps.api.addr_humanize(&pair_info.burn_address)?;
             messages.push(CosmosMsg::Wasm(WasmMsg::Execute {
                 contract_addr: burn_handler_address.to_string(),
-                msg: to_json_binary(&SendNativeMsg {
+                msg: to_json_binary(&BurnManagerMsg::SendNative {
                     asset: burn_asset.clone(),
                 })?,
                 funds: vec![Coin {
