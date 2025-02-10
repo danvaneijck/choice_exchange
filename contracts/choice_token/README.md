@@ -1,4 +1,4 @@
-# TerraSwap Token
+# Choice Token
 
 # CW20 Basic with expanded name and symbol range
 

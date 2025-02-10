@@ -1,10 +1,10 @@
-# TerraSwap Pair
+# Choice Pair
 
 ## Handlers
 
 ### Initialize
 
-This is mainly used from terraswap factory contract to create new terraswap pair. It initializes all swap created parameters which can be updated later with owner key.
+This is mainly used from choice factory contract to create new choice pair. It initializes all swap created parameters which can be updated later with owner key.
 
 It creates liquidity token contract as init response, and execute init hook to register created liquidity token contract to self.
 
