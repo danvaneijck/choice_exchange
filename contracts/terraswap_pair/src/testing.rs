@@ -4,7 +4,7 @@ use crate::contract::{
 };
 use crate::error::ContractError;
 use std::str::FromStr;
-use terraswap::mock_querier::mock_dependencies;
+use choice::mock_querier::mock_dependencies;
 
 use cosmwasm_std::testing::{mock_env, mock_info, MOCK_CONTRACT_ADDR};
 use cosmwasm_std::{
@@ -12,12 +12,12 @@ use cosmwasm_std::{
     SubMsgResponse, SubMsgResult, Uint128, WasmMsg,
 };
 use cw20::{Cw20ExecuteMsg, Cw20ReceiveMsg, MinterResponse};
-use terraswap::asset::{Asset, AssetInfo, PairInfo};
-use terraswap::pair::{
+use choice::asset::{Asset, AssetInfo, PairInfo};
+use choice::pair::{
     Cw20HookMsg, ExecuteMsg, InstantiateMsg, PoolResponse, ReverseSimulationResponse,
     SimulationResponse,
 };
-use terraswap::token::InstantiateMsg as TokenInstantiateMsg;
+use choice::token::InstantiateMsg as TokenInstantiateMsg;
 
 #[test]
 fn proper_initialization() {
@@ -48,7 +48,7 @@ fn proper_initialization() {
             msg: WasmMsg::Instantiate {
                 code_id: 10u64,
                 msg: to_json_binary(&TokenInstantiateMsg {
-                    name: "terraswap liquidity token".to_string(),
+                    name: "choice liquidity token".to_string(),
                     symbol: "uLP".to_string(),
                     decimals: 6,
                     initial_balances: vec![],

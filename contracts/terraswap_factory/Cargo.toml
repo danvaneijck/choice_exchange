@@ -1,9 +1,9 @@
 [package]
-name = "terraswap-factory"
+name = "choice-factory"
 version = "0.2.0"
 authors = ["Terraform Labs, PTE.", "DELIGHT LABS"]
 edition = "2018"
-description = "A Terraswap factory contract - auto pair contract generator and also directory for all pairs"
+description = "A Choice factory contract - auto pair contract generator and also directory for all pairs"
 license = "MIT"
 
 exclude = [
@@ -26,7 +26,7 @@ backtraces = ["cosmwasm-std/backtraces"]
 library = []
 
 [dependencies]
-terraswap = { path = "../../packages/terraswap", default-features = false, version = "2.9.0"}
+choice = { path = "../../packages/choice", default-features = false, version = "2.9.0"}
 cosmwasm-std = { version = "1.0.0" }
 cw-storage-plus = { version = "0.13.4" } 
 cw2 = { version = "0.13.4" } 

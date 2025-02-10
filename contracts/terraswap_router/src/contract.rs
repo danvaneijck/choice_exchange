@@ -12,17 +12,17 @@ use crate::state::{Config, CONFIG};
 
 use cw20::Cw20ReceiveMsg;
 use std::collections::HashMap;
-use terraswap::asset::{Asset, AssetInfo, PairInfo};
-use terraswap::pair::SimulationResponse;
-use terraswap::querier::{query_pair_info, reverse_simulate, simulate};
-use terraswap::router::{
+use choice::asset::{Asset, AssetInfo, PairInfo};
+use choice::pair::SimulationResponse;
+use choice::querier::{query_pair_info, reverse_simulate, simulate};
+use choice::router::{
     ConfigResponse, Cw20HookMsg, ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg,
     SimulateSwapOperationsResponse, SwapOperation,
 };
-use terraswap::util::migrate_version;
+use choice::util::migrate_version;
 
 // version info for migration info
-const CONTRACT_NAME: &str = "crates.io:terraswap-router";
+const CONTRACT_NAME: &str = "crates.io:choice-router";
 const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
 
 #[cfg_attr(not(feature = "library"), entry_point)]
@@ -37,7 +37,7 @@ pub fn instantiate(
     CONFIG.save(
         deps.storage,
         &Config {
-            terraswap_factory: deps.api.addr_canonicalize(&msg.terraswap_factory)?,
+            choice_factory: deps.api.addr_canonicalize(&msg.choice_factory)?,
         },
     )?;
 
@@ -233,9 +233,9 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
 pub fn query_config(deps: Deps) -> StdResult<ConfigResponse> {
     let state = CONFIG.load(deps.storage)?;
     let resp = ConfigResponse {
-        terraswap_factory: deps
+        choice_factory: deps
             .api
-            .addr_humanize(&state.terraswap_factory)?
+            .addr_humanize(&state.choice_factory)?
             .to_string(),
     };
 
@@ -248,7 +248,7 @@ fn simulate_swap_operations(
     operations: Vec<SwapOperation>,
 ) -> StdResult<SimulateSwapOperationsResponse> {
     let config: Config = CONFIG.load(deps.storage)?;
-    let terraswap_factory = deps.api.addr_humanize(&config.terraswap_factory)?;
+    let choice_factory = deps.api.addr_humanize(&config.choice_factory)?;
 
     let operations_len = operations.len();
     if operations_len == 0 {
@@ -258,13 +258,13 @@ fn simulate_swap_operations(
     let mut offer_amount = offer_amount;
     for operation in operations.into_iter() {
         match operation {
-            SwapOperation::TerraSwap {
+            SwapOperation::Choice {
                 offer_asset_info,
                 ask_asset_info,
             } => {
                 let pair_info: PairInfo = query_pair_info(
                     &deps.querier,
-                    terraswap_factory.clone(),
+                    choice_factory.clone(),
                     &[offer_asset_info.clone(), ask_asset_info.clone()],
                 )?;
 
@@ -302,15 +302,15 @@ fn reverse_simulate_swap_operations(
     let mut ask_amount = ask_amount;
     for operation in operations.into_iter().rev() {
         ask_amount = match operation {
-            SwapOperation::TerraSwap {
+            SwapOperation::Choice {
                 offer_asset_info,
                 ask_asset_info,
             } => {
-                let terraswap_factory = deps.api.addr_humanize(&config.terraswap_factory)?;
+                let choice_factory = deps.api.addr_humanize(&config.choice_factory)?;
 
                 reverse_simulate_return_amount(
                     deps,
-                    terraswap_factory,
+                    choice_factory,
                     ask_amount,
                     offer_asset_info,
                     ask_asset_info,
@@ -352,7 +352,7 @@ fn assert_operations(operations: &[SwapOperation]) -> StdResult<()> {
     let mut ask_asset_map: HashMap<String, bool> = HashMap::new();
     for operation in operations.iter() {
         let (offer_asset, ask_asset) = match operation {
-            SwapOperation::TerraSwap {
+            SwapOperation::Choice {
                 offer_asset_info,
                 ask_asset_info,
             } => (offer_asset_info.clone(), ask_asset_info.clone()),
@@ -378,7 +378,7 @@ fn test_invalid_operations() {
 
     // uluna output
     assert!(assert_operations(&[
-        SwapOperation::TerraSwap {
+        SwapOperation::Choice {
             offer_asset_info: AssetInfo::NativeToken {
                 denom: "ukrw".to_string(),
             },
@@ -386,7 +386,7 @@ fn test_invalid_operations() {
                 contract_addr: "asset0001".to_string(),
             },
         },
-        SwapOperation::TerraSwap {
+        SwapOperation::Choice {
             offer_asset_info: AssetInfo::Token {
                 contract_addr: "asset0001".to_string(),
             },
@@ -399,7 +399,7 @@ fn test_invalid_operations() {
 
     // asset0002 output
     assert!(assert_operations(&[
-        SwapOperation::TerraSwap {
+        SwapOperation::Choice {
             offer_asset_info: AssetInfo::NativeToken {
                 denom: "ukrw".to_string(),
             },
@@ -407,7 +407,7 @@ fn test_invalid_operations() {
                 contract_addr: "asset0001".to_string(),
             },
         },
-        SwapOperation::TerraSwap {
+        SwapOperation::Choice {
             offer_asset_info: AssetInfo::Token {
                 contract_addr: "asset0001".to_string(),
             },
@@ -415,7 +415,7 @@ fn test_invalid_operations() {
                 denom: "uluna".to_string(),
             },
         },
-        SwapOperation::TerraSwap {
+        SwapOperation::Choice {
             offer_asset_info: AssetInfo::NativeToken {
                 denom: "uluna".to_string(),
             },

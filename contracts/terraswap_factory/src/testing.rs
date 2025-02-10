@@ -1,5 +1,5 @@
 use crate::contract::{execute, instantiate, query, reply};
-use terraswap::mock_querier::{mock_dependencies, WasmMockQuerier};
+use choice::mock_querier::{mock_dependencies, WasmMockQuerier};
 
 use crate::state::{pair_key, TmpPairInfo, TMP_PAIR_INFO, CONFIG, Config};
 
@@ -9,11 +9,11 @@ use cosmwasm_std::{
     Response, StdError, SubMsg, SubMsgResponse, SubMsgResult, Uint128, WasmMsg, Api,
 };
 use cw20::Cw20ExecuteMsg;
-use terraswap::asset::{Asset, AssetInfo, PairInfo};
-use terraswap::factory::{
+use choice::asset::{Asset, AssetInfo, PairInfo};
+use choice::factory::{
     ConfigResponse, ExecuteMsg, InstantiateMsg, NativeTokenDecimalsResponse, QueryMsg,
 };
-use terraswap::pair::{
+use choice::pair::{
     ExecuteMsg as PairExecuteMsg, InstantiateMsg as PairInstantiateMsg,
     MigrateMsg as PairMigrateMsg,
 };
@@ -146,7 +146,7 @@ fn create_pair() {
     let mut deps = mock_dependencies(&[coin(10u128, "uusd".to_string())]);
     deps = init(deps);
     deps.querier
-        .with_terraswap_factory(&[], &[("uusd".to_string(), 6u8)]);
+        .with_choice_factory(&[], &[("uusd".to_string(), 6u8)]);
     let assets = [
         Asset {
             info: AssetInfo::NativeToken {
@@ -235,7 +235,7 @@ fn create_pair_native_token_and_ibc_token() {
         coin(10u128, "ibc/HASH".to_string()),
     ]);
     deps = init(deps);
-    deps.querier.with_terraswap_factory(
+    deps.querier.with_choice_factory(
         &[],
         &[("uusd".to_string(), 6u8), ("ibc/HASH".to_string(), 6u8)],
     );
@@ -355,7 +355,7 @@ fn fail_to_create_pair_with_unknown_denom() {
     deps = init(deps);
 
     deps.querier
-        .with_terraswap_factory(&[], &[("uusd".to_string(), 6u8)]);
+        .with_choice_factory(&[], &[("uusd".to_string(), 6u8)]);
 
     let assets = [
         Asset {
@@ -389,7 +389,7 @@ fn fail_to_create_pair_with_unknown_token() {
     deps = init(deps);
 
     deps.querier
-        .with_terraswap_factory(&[], &[("uluna".to_string(), 6u8)]);
+        .with_choice_factory(&[], &[("uluna".to_string(), 6u8)]);
 
     let assets = [
         Asset {
@@ -497,8 +497,8 @@ fn reply_only_create_pair() {
         },
     ];
 
-    // register terraswap pair querier
-    deps.querier.with_terraswap_factory(
+    // register choice pair querier
+    deps.querier.with_choice_factory(
         &[(
             &"0000".to_string(),
             &PairInfo {
@@ -603,8 +603,8 @@ fn reply_create_pair_with_provide() {
         },
     ];
 
-    // register terraswap pair querier
-    deps.querier.with_terraswap_factory(
+    // register choice pair querier
+    deps.querier.with_choice_factory(
         &[(
             &"pair0000".to_string(),
             &PairInfo {

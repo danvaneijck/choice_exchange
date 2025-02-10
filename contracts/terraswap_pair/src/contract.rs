@@ -18,19 +18,19 @@ use std::cmp::Ordering;
 use std::convert::TryInto;
 use std::ops::Mul;
 use std::str::FromStr;
-use terraswap::asset::{Asset, AssetInfo, PairInfo, PairInfoRaw};
-use terraswap::pair::{
+use choice::asset::{Asset, AssetInfo, PairInfo, PairInfoRaw};
+use choice::pair::{
     Cw20HookMsg, ExecuteMsg, InstantiateMsg, MigrateMsg, PoolResponse, QueryMsg,
     ReverseSimulationResponse, SimulationResponse,
 };
-use terraswap::querier::query_token_info;
-use terraswap::token::InstantiateMsg as TokenInstantiateMsg;
-use terraswap::util::migrate_version;
+use choice::querier::query_token_info;
+use choice::token::InstantiateMsg as TokenInstantiateMsg;
+use choice::util::migrate_version;
 
 use serde::{Deserialize, Serialize};
 
 // version info for migration info
-const CONTRACT_NAME: &str = "crates.io:terraswap-pair";
+const CONTRACT_NAME: &str = "crates.io:choice-pair";
 const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
 
 const INSTANTIATE_REPLY_ID: u64 = 1;
@@ -69,7 +69,7 @@ pub fn instantiate(
             admin: None,
             code_id: msg.token_code_id,
             msg: to_json_binary(&TokenInstantiateMsg {
-                name: "terraswap liquidity token".to_string(),
+                name: "choice liquidity token".to_string(),
                 symbol: "uLP".to_string(),
                 decimals: 6,
                 initial_balances: vec![],
@@ -811,7 +811,7 @@ fn compute_offer_amount(
 }
 
 /// If `belief_price` and `max_spread` both are given,
-/// we compute new spread else we just use terraswap
+/// we compute new spread else we just use choice
 /// spread to check `max_spread`
 pub fn assert_max_spread(
     belief_price: Option<Decimal>,

@@ -376,10 +376,10 @@ fn test_asset_info_raw_equal() {
 }
 
 #[test]
-fn query_terraswap_pair_contract() {
+fn query_choice_pair_contract() {
     let mut deps = mock_dependencies(&[]);
 
-    deps.querier.with_terraswap_factory(
+    deps.querier.with_choice_factory(
         &[(
             &"asset0000uusd".to_string(),
             &PairInfo {

@@ -1,9 +1,9 @@
 [package]
-name = "terraswap"
+name = "choice"
 version = "2.9.0"
 authors = ["Terraform Labs, PTE.", "DELIGHT LABS"]
 edition = "2018"
-description = "Common terraswap types"
+description = "Common choice types"
 license = "Apache-2.0"
 repository = "https://github.com/terraswap/terraswap"
 homepage = "https://terraswap.io"

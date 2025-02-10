@@ -8,13 +8,13 @@ use crate::asset::AssetInfo;
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
 pub struct InstantiateMsg {
-    pub terraswap_factory: String,
+    pub choice_factory: String,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum SwapOperation {
-    TerraSwap {
+    Choice {
         offer_asset_info: AssetInfo,
         ask_asset_info: AssetInfo,
     },
@@ -23,7 +23,7 @@ pub enum SwapOperation {
 impl SwapOperation {
     pub fn get_target_asset_info(&self) -> AssetInfo {
         match self {
-            SwapOperation::TerraSwap { ask_asset_info, .. } => ask_asset_info.clone(),
+            SwapOperation::Choice { ask_asset_info, .. } => ask_asset_info.clone(),
         }
     }
 }
@@ -85,7 +85,7 @@ pub enum QueryMsg {
 // We define a custom struct for each query response
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
 pub struct ConfigResponse {
-    pub terraswap_factory: String,
+    pub choice_factory: String,
 }
 
 // We define a custom struct for each query response

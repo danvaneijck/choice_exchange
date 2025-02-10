@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 
 use cosmwasm_std::{Addr, Api, CanonicalAddr, Order, StdResult, Storage};
 use cw_storage_plus::{Bound, Item, Map};
-use terraswap::asset::{AssetInfoRaw, AssetRaw, PairInfo, PairInfoRaw};
+use choice::asset::{AssetInfoRaw, AssetRaw, PairInfo, PairInfoRaw};
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
 pub struct Config {
@@ -85,7 +85,7 @@ pub fn add_allow_native_token(
 #[cfg(test)]
 mod allow_native_token {
 
-    use terraswap::mock_querier::mock_dependencies;
+    use choice::mock_querier::mock_dependencies;
 
     use super::*;
 

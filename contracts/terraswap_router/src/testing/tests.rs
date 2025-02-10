@@ -5,12 +5,12 @@ use cosmwasm_std::{
 
 use crate::contract::{execute, instantiate, query};
 use crate::operations::asset_into_swap_msg;
-use terraswap::mock_querier::mock_dependencies;
+use choice::mock_querier::mock_dependencies;
 
 use cw20::{Cw20ExecuteMsg, Cw20ReceiveMsg};
-use terraswap::asset::{Asset, AssetInfo, PairInfo};
-use terraswap::pair::ExecuteMsg as PairExecuteMsg;
-use terraswap::router::{
+use choice::asset::{Asset, AssetInfo, PairInfo};
+use choice::pair::ExecuteMsg as PairExecuteMsg;
+use choice::router::{
     ConfigResponse, Cw20HookMsg, ExecuteMsg, InstantiateMsg, QueryMsg,
     SimulateSwapOperationsResponse, SwapOperation,
 };
@@ -20,7 +20,7 @@ fn proper_initialization() {
     let mut deps = mock_dependencies(&[]);
 
     let msg = InstantiateMsg {
-        terraswap_factory: "terraswapfactory".to_string(),
+        choice_factory: "choicefactory".to_string(),
     };
 
     let info = mock_info("addr0000", &[]);
@@ -31,7 +31,7 @@ fn proper_initialization() {
     // it worked, let's query the state
     let config: ConfigResponse =
         from_json(&query(deps.as_ref(), mock_env(), QueryMsg::Config {}).unwrap()).unwrap();
-    assert_eq!("terraswapfactory", config.terraswap_factory.as_str());
+    assert_eq!("choicefactory", config.choice_factory.as_str());
 }
 
 #[test]
@@ -43,7 +43,7 @@ fn execute_swap_operations() {
     )]);
 
     let msg = InstantiateMsg {
-        terraswap_factory: "terraswapfactory".to_string(),
+        choice_factory: "choicefactory".to_string(),
     };
 
     let info = mock_info("addr0000", &[]);
@@ -67,7 +67,7 @@ fn execute_swap_operations() {
 
     let msg = ExecuteMsg::ExecuteSwapOperations {
         operations: vec![
-            SwapOperation::TerraSwap {
+            SwapOperation::Choice {
                 offer_asset_info: AssetInfo::NativeToken {
                     denom: "ukrw".to_string(),
                 },
@@ -75,7 +75,7 @@ fn execute_swap_operations() {
                     contract_addr: "asset0001".to_string(),
                 },
             },
-            SwapOperation::TerraSwap {
+            SwapOperation::Choice {
                 offer_asset_info: AssetInfo::Token {
                     contract_addr: "asset0001".to_string(),
                 },
@@ -83,7 +83,7 @@ fn execute_swap_operations() {
                     denom: "uluna".to_string(),
                 },
             },
-            SwapOperation::TerraSwap {
+            SwapOperation::Choice {
                 offer_asset_info: AssetInfo::NativeToken {
                     denom: "uluna".to_string(),
                 },
@@ -106,7 +106,7 @@ fn execute_swap_operations() {
                 contract_addr: MOCK_CONTRACT_ADDR.to_string(),
                 funds: vec![],
                 msg: to_json_binary(&ExecuteMsg::ExecuteSwapOperation {
-                    operation: SwapOperation::TerraSwap {
+                    operation: SwapOperation::Choice {
                         offer_asset_info: AssetInfo::NativeToken {
                             denom: "ukrw".to_string(),
                         },
@@ -123,7 +123,7 @@ fn execute_swap_operations() {
                 contract_addr: MOCK_CONTRACT_ADDR.to_string(),
                 funds: vec![],
                 msg: to_json_binary(&ExecuteMsg::ExecuteSwapOperation {
-                    operation: SwapOperation::TerraSwap {
+                    operation: SwapOperation::Choice {
                         offer_asset_info: AssetInfo::Token {
                             contract_addr: "asset0001".to_string(),
                         },
@@ -140,7 +140,7 @@ fn execute_swap_operations() {
                 contract_addr: MOCK_CONTRACT_ADDR.to_string(),
                 funds: vec![],
                 msg: to_json_binary(&ExecuteMsg::ExecuteSwapOperation {
-                    operation: SwapOperation::TerraSwap {
+                    operation: SwapOperation::Choice {
                         offer_asset_info: AssetInfo::NativeToken {
                             denom: "uluna".to_string(),
                         },
@@ -174,7 +174,7 @@ fn execute_swap_operations() {
         amount: Uint128::from(1000000u128),
         msg: to_json_binary(&Cw20HookMsg::ExecuteSwapOperations {
             operations: vec![
-                SwapOperation::TerraSwap {
+                SwapOperation::Choice {
                     offer_asset_info: AssetInfo::NativeToken {
                         denom: "ukrw".to_string(),
                     },
@@ -182,7 +182,7 @@ fn execute_swap_operations() {
                         contract_addr: "asset0001".to_string(),
                     },
                 },
-                SwapOperation::TerraSwap {
+                SwapOperation::Choice {
                     offer_asset_info: AssetInfo::Token {
                         contract_addr: "asset0001".to_string(),
                     },
@@ -190,7 +190,7 @@ fn execute_swap_operations() {
                         denom: "uluna".to_string(),
                     },
                 },
-                SwapOperation::TerraSwap {
+                SwapOperation::Choice {
                     offer_asset_info: AssetInfo::NativeToken {
                         denom: "uluna".to_string(),
                     },
@@ -215,7 +215,7 @@ fn execute_swap_operations() {
                 contract_addr: MOCK_CONTRACT_ADDR.to_string(),
                 funds: vec![],
                 msg: to_json_binary(&ExecuteMsg::ExecuteSwapOperation {
-                    operation: SwapOperation::TerraSwap {
+                    operation: SwapOperation::Choice {
                         offer_asset_info: AssetInfo::NativeToken {
                             denom: "ukrw".to_string(),
                         },
@@ -232,7 +232,7 @@ fn execute_swap_operations() {
                 contract_addr: MOCK_CONTRACT_ADDR.to_string(),
                 funds: vec![],
                 msg: to_json_binary(&ExecuteMsg::ExecuteSwapOperation {
-                    operation: SwapOperation::TerraSwap {
+                    operation: SwapOperation::Choice {
                         offer_asset_info: AssetInfo::Token {
                             contract_addr: "asset0001".to_string(),
                         },
@@ -249,7 +249,7 @@ fn execute_swap_operations() {
                 contract_addr: MOCK_CONTRACT_ADDR.to_string(),
                 funds: vec![],
                 msg: to_json_binary(&ExecuteMsg::ExecuteSwapOperation {
-                    operation: SwapOperation::TerraSwap {
+                    operation: SwapOperation::Choice {
                         offer_asset_info: AssetInfo::NativeToken {
                             denom: "uluna".to_string(),
                         },
@@ -270,7 +270,7 @@ fn execute_swap_operations() {
 fn execute_swap_operation() {
     let mut deps = mock_dependencies(&[]);
     let msg = InstantiateMsg {
-        terraswap_factory: "terraswapfactory".to_string(),
+        choice_factory: "choicefactory".to_string(),
     };
 
     let info = mock_info("addr0000", &[]);
@@ -278,7 +278,7 @@ fn execute_swap_operation() {
     // we can just call .unwrap() to assert this was a success
     let _res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
 
-    deps.querier.with_terraswap_factory(
+    deps.querier.with_choice_factory(
         &[(
             &"uusdasset0000".to_string(),
             &PairInfo {
@@ -309,7 +309,7 @@ fn execute_swap_operation() {
     )]);
 
     let msg = ExecuteMsg::ExecuteSwapOperation {
-        operation: SwapOperation::TerraSwap {
+        operation: SwapOperation::Choice {
             offer_asset_info: AssetInfo::NativeToken {
                 denom: "uusd".to_string(),
             },
@@ -352,7 +352,7 @@ fn execute_swap_operation() {
     // optional to address
     // swap_send
     let msg = ExecuteMsg::ExecuteSwapOperation {
-        operation: SwapOperation::TerraSwap {
+        operation: SwapOperation::Choice {
             offer_asset_info: AssetInfo::NativeToken {
                 denom: "uusd".to_string(),
             },
@@ -384,7 +384,7 @@ fn execute_swap_operation() {
             .unwrap()
         )],
     );
-    deps.querier.with_terraswap_factory(
+    deps.querier.with_choice_factory(
         &[(
             &"assetuusd".to_string(),
             &PairInfo {
@@ -411,7 +411,7 @@ fn execute_swap_operation() {
     )]);
 
     let msg = ExecuteMsg::ExecuteSwapOperation {
-        operation: SwapOperation::TerraSwap {
+        operation: SwapOperation::Choice {
             offer_asset_info: AssetInfo::Token {
                 contract_addr: "asset".to_string(),
             },
@@ -457,7 +457,7 @@ fn query_buy_with_routes() {
     let mut deps = mock_dependencies(&[]);
 
     let msg = InstantiateMsg {
-        terraswap_factory: "terraswapfactory".to_string(),
+        choice_factory: "choicefactory".to_string(),
     };
 
     let info = mock_info("addr0000", &[]);
@@ -468,7 +468,7 @@ fn query_buy_with_routes() {
     let msg = QueryMsg::SimulateSwapOperations {
         offer_amount: Uint128::from(1000000u128),
         operations: vec![
-            SwapOperation::TerraSwap {
+            SwapOperation::Choice {
                 offer_asset_info: AssetInfo::NativeToken {
                     denom: "ukrw".to_string(),
                 },
@@ -476,7 +476,7 @@ fn query_buy_with_routes() {
                     contract_addr: "asset0000".to_string(),
                 },
             },
-            SwapOperation::TerraSwap {
+            SwapOperation::Choice {
                 offer_asset_info: AssetInfo::Token {
                     contract_addr: "asset0000".to_string(),
                 },
@@ -487,7 +487,7 @@ fn query_buy_with_routes() {
         ],
     };
 
-    deps.querier.with_terraswap_factory(
+    deps.querier.with_choice_factory(
         &[
             (
                 &"ukrwasset0000".to_string(),
@@ -544,7 +544,7 @@ fn query_reverse_routes_with_from_native() {
     let mut deps = mock_dependencies(&[]);
 
     let msg = InstantiateMsg {
-        terraswap_factory: "terraswapfactory".to_string(),
+        choice_factory: "choicefactory".to_string(),
     };
 
     let target_amount = 1000000u128;
@@ -570,7 +570,7 @@ fn query_reverse_routes_with_from_native() {
 
     let msg = QueryMsg::ReverseSimulateSwapOperations {
         ask_amount: Uint128::from(target_amount),
-        operations: vec![SwapOperation::TerraSwap {
+        operations: vec![SwapOperation::Choice {
             offer_asset_info: AssetInfo::NativeToken {
                 denom: "ukrw".to_string(),
             },
@@ -580,7 +580,7 @@ fn query_reverse_routes_with_from_native() {
         }],
     };
 
-    deps.querier.with_terraswap_factory(
+    deps.querier.with_choice_factory(
         &[
             (
                 &"ukrwasset0000".to_string(),
@@ -635,7 +635,7 @@ fn query_reverse_routes_with_from_native() {
     let offer_amount = res.amount;
 
     let msg = ExecuteMsg::ExecuteSwapOperation {
-        operation: SwapOperation::TerraSwap {
+        operation: SwapOperation::Choice {
             offer_asset_info: AssetInfo::NativeToken {
                 denom: "ukrw".to_string(),
             },
@@ -683,7 +683,7 @@ fn query_reverse_routes_with_to_native() {
     let mut deps = mock_dependencies(&[]);
 
     let msg = InstantiateMsg {
-        terraswap_factory: "terraswapfactory".to_string(),
+        choice_factory: "choicefactory".to_string(),
     };
 
     let target_amount = 1000000u128;
@@ -706,7 +706,7 @@ fn query_reverse_routes_with_to_native() {
 
     let msg = QueryMsg::ReverseSimulateSwapOperations {
         ask_amount: Uint128::from(target_amount),
-        operations: vec![SwapOperation::TerraSwap {
+        operations: vec![SwapOperation::Choice {
             offer_asset_info: AssetInfo::Token {
                 contract_addr: "asset0000".to_string(),
             },
@@ -716,7 +716,7 @@ fn query_reverse_routes_with_to_native() {
         }],
     };
 
-    deps.querier.with_terraswap_factory(
+    deps.querier.with_choice_factory(
         &[
             (
                 &"ukrwasset0000".to_string(),
@@ -774,7 +774,7 @@ fn query_reverse_routes_with_to_native() {
         sender: "addr0".to_string(),
         amount: offer_amount,
         msg: to_json_binary(&Cw20HookMsg::ExecuteSwapOperations {
-            operations: vec![SwapOperation::TerraSwap {
+            operations: vec![SwapOperation::Choice {
                 offer_asset_info: AssetInfo::Token {
                     contract_addr: "asset0000".to_string(),
                 },
@@ -797,7 +797,7 @@ fn query_reverse_routes_with_to_native() {
             contract_addr: MOCK_CONTRACT_ADDR.to_string(),
             funds: vec![],
             msg: to_json_binary(&ExecuteMsg::ExecuteSwapOperation {
-                operation: SwapOperation::TerraSwap {
+                operation: SwapOperation::Choice {
                     offer_asset_info: AssetInfo::Token {
                         contract_addr: "asset0000".to_string(),
                     },
@@ -813,7 +813,7 @@ fn query_reverse_routes_with_to_native() {
     );
 
     let msg = ExecuteMsg::ExecuteSwapOperation {
-        operation: SwapOperation::TerraSwap {
+        operation: SwapOperation::Choice {
             offer_asset_info: AssetInfo::Token {
                 contract_addr: "asset0000".to_string(),
             },

@@ -1,9 +1,9 @@
 [package]
-name = "terraswap-pair"
+name = "choice-pair"
 version = "0.2.0"
 authors = ["Terraform Labs, PTE.", "DELIGHT LABS"]
 edition = "2018"
-description = "A Terraswap pair contract"
+description = "A Choice pair contract"
 license = "MIT"
 
 exclude = [
@@ -32,7 +32,7 @@ schemars = "0.8.10"
 serde = { version = "1.0.103", default-features = false, features = ["derive"] }
 thiserror = { version = "1.0.20" }
 protobuf = { version = "2", features = ["with-bytes"] }
-terraswap = { path = "../../packages/terraswap", default-features = false, version = "2.9.0"}
+choice = { path = "../../packages/choice", default-features = false, version = "2.9.0"}
 
 [dev-dependencies]
 cosmwasm-schema = { version = "1.0.0" }

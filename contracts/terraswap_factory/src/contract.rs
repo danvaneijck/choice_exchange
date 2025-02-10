@@ -6,7 +6,7 @@ use cosmwasm_std::{
 };
 use cw2::set_contract_version;
 use cw20::Cw20ExecuteMsg;
-use terraswap::querier::{query_balance, query_pair_info_from_pair};
+use choice::querier::{query_balance, query_pair_info_from_pair};
 
 use crate::response::MsgInstantiateContractResponse;
 use crate::state::{
@@ -15,19 +15,19 @@ use crate::state::{
 };
 
 use protobuf::Message;
-use terraswap::asset::{Asset, AssetInfo, AssetInfoRaw, PairInfo, PairInfoRaw};
-use terraswap::factory::{
+use choice::asset::{Asset, AssetInfo, AssetInfoRaw, PairInfo, PairInfoRaw};
+use choice::factory::{
     ConfigResponse, ExecuteMsg, InstantiateMsg, MigrateMsg, NativeTokenDecimalsResponse,
     PairsResponse, QueryMsg,
 };
-use terraswap::pair::{
+use choice::pair::{
     ExecuteMsg as PairExecuteMsg, InstantiateMsg as PairInstantiateMsg,
     MigrateMsg as PairMigrateMsg,
 };
-use terraswap::util::migrate_version;
+use choice::util::migrate_version;
 
 // version info for migration info
-const CONTRACT_NAME: &str = "crates.io:terraswap-factory";
+const CONTRACT_NAME: &str = "crates.io:choice-factory";
 const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
 
 const CREATE_PAIR_REPLY_ID: u64 = 1;
