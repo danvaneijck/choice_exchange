@@ -32,7 +32,7 @@ pub fn instantiate(
     store_config(
         deps.storage,
         &Config {
-            anchor_token: deps.api.addr_canonicalize(&msg.anchor_token)?,
+            reward_token: deps.api.addr_canonicalize(&msg.reward_token)?,
             staking_token: deps.api.addr_canonicalize(&msg.staking_token)?,
             distribution_schedule: msg.distribution_schedule,
         },
@@ -185,7 +185,7 @@ pub fn withdraw(deps: DepsMut, env: Env, info: MessageInfo) -> StdResult<Respons
 
     Ok(Response::new()
         .add_messages(vec![CosmosMsg::Wasm(WasmMsg::Execute {
-            contract_addr: deps.api.addr_humanize(&config.anchor_token)?.to_string(),
+            contract_addr: deps.api.addr_humanize(&config.reward_token)?.to_string(),
             msg: to_json_binary(&Cw20ExecuteMsg::Transfer {
                 recipient: info.sender.to_string(),
                 amount,
@@ -210,7 +210,7 @@ pub fn update_config(
     let state: State = read_state(deps.storage)?;
 
     let sender_addr_raw: CanonicalAddr = deps.api.addr_canonicalize(info.sender.as_str())?;
-    let anc_token: Addr = deps.api.addr_humanize(&config.anchor_token)?;
+    let anc_token: Addr = deps.api.addr_humanize(&config.reward_token)?;
     let gov_addr_raw: CanonicalAddr = deps
         .api
         .addr_canonicalize(&query_anc_minter(&deps.querier, anc_token)?)?;
@@ -221,7 +221,7 @@ pub fn update_config(
     assert_new_schedules(&config, &state, distribution_schedule.clone())?;
 
     let new_config = Config {
-        anchor_token: config.anchor_token,
+        reward_token: config.reward_token,
         staking_token: config.staking_token,
         distribution_schedule,
     };
@@ -239,7 +239,7 @@ pub fn migrate_staking(
     let sender_addr_raw: CanonicalAddr = deps.api.addr_canonicalize(info.sender.as_str())?;
     let mut config: Config = read_config(deps.storage)?;
     let mut state: State = read_state(deps.storage)?;
-    let anc_token: Addr = deps.api.addr_humanize(&config.anchor_token)?;
+    let anc_token: Addr = deps.api.addr_humanize(&config.reward_token)?;
 
     // get gov address by querying anc token minter
     let gov_addr_raw: CanonicalAddr = deps
@@ -371,7 +371,7 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
 pub fn query_config(deps: Deps) -> StdResult<ConfigResponse> {
     let state = read_config(deps.storage)?;
     let resp = ConfigResponse {
-        anchor_token: deps.api.addr_humanize(&state.anchor_token)?.to_string(),
+        reward_token: deps.api.addr_humanize(&state.reward_token)?.to_string(),
         staking_token: deps.api.addr_humanize(&state.staking_token)?.to_string(),
         distribution_schedule: state.distribution_schedule,
     };
