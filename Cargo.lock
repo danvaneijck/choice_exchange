@@ -285,6 +285,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "choice-farm"
+version = "0.0.0"
+dependencies = [
+ "choice",
+ "cosmwasm-schema 0.16.7",
+ "cosmwasm-std 1.5.8",
+ "cosmwasm-storage",
+ "cw-storage-plus 0.13.4",
+ "cw20 0.13.4",
+ "schemars",
+ "serde",
+]
+
+[[package]]
 name = "choice-pair"
 version = "0.2.0"
 dependencies = [
@@ -448,6 +462,16 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.90",
+]
+
+[[package]]
+name = "cosmwasm-schema"
+version = "0.16.7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b021bdefb9d855c5135e83046e5407a9fddba869e42e78b6036b53a606dc8c10"
+dependencies = [
+ "schemars",
+ "serde_json",
 ]
 
 [[package]]
