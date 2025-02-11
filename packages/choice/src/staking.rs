@@ -3,11 +3,12 @@ use serde::{Deserialize, Serialize};
 
 use cosmwasm_std::{Decimal, Uint128};
 use cw20::Cw20ReceiveMsg;
+use crate::asset::{AssetInfo};
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct InstantiateMsg {
-    pub reward_token: String,
-    pub staking_token: String, // lp token of ANC-UST pair contract
+    pub reward_token: AssetInfo,
+    pub staking_token: String, // lp token 
     pub distribution_schedule: Vec<(u64, u64, Uint128)>,
 }
 

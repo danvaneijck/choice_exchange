@@ -2,9 +2,11 @@
 use cosmwasm_std::entry_point;
 
 use cosmwasm_std::{
-    from_json, to_json_binary, Addr, Binary, CanonicalAddr, CosmosMsg, Decimal, Deps, DepsMut, Env,
-    MessageInfo, Response, StdError, StdResult, Uint128, WasmMsg,
+    from_json, to_json_binary, coins, Addr, Binary, CanonicalAddr, CosmosMsg, Decimal, Deps, DepsMut, Env,
+    MessageInfo, Response, StdError, StdResult, Uint128, WasmMsg, BankMsg
 };
+
+use choice::asset::{AssetInfo};
 
 use choice::staking::{
     ConfigResponse, Cw20HookMsg, ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg,
@@ -12,7 +14,6 @@ use choice::staking::{
 };
 
 use crate::{
-    querier::query_anc_minter,
     state::{
         read_config, read_staker_info, read_state, remove_staker_info, store_config,
         store_staker_info, store_state, Config, StakerInfo, State,
@@ -29,10 +30,12 @@ pub fn instantiate(
     _info: MessageInfo,
     msg: InstantiateMsg,
 ) -> StdResult<Response> {
+
     store_config(
         deps.storage,
         &Config {
-            reward_token: deps.api.addr_canonicalize(&msg.reward_token)?,
+            owner: deps.api.addr_canonicalize(_info.sender.as_str())?, 
+            reward_token: msg.reward_token,
             staking_token: deps.api.addr_canonicalize(&msg.staking_token)?,
             distribution_schedule: msg.distribution_schedule,
         },
@@ -183,15 +186,24 @@ pub fn withdraw(deps: DepsMut, env: Env, info: MessageInfo) -> StdResult<Respons
     // Store updated state
     store_state(deps.storage, &state)?;
 
-    Ok(Response::new()
-        .add_messages(vec![CosmosMsg::Wasm(WasmMsg::Execute {
-            contract_addr: deps.api.addr_humanize(&config.reward_token)?.to_string(),
+    // Build the reward send message based on the asset type
+    let reward_msg: CosmosMsg = match config.reward_token {
+        AssetInfo::Token { ref contract_addr } => CosmosMsg::Wasm(WasmMsg::Execute {
+            contract_addr: contract_addr.clone(),
             msg: to_json_binary(&Cw20ExecuteMsg::Transfer {
                 recipient: info.sender.to_string(),
                 amount,
             })?,
             funds: vec![],
-        })])
+        }),
+        AssetInfo::NativeToken { ref denom } => CosmosMsg::Bank(BankMsg::Send {
+            to_address: info.sender.to_string(),
+            amount: coins(amount.u128(), denom),
+        }),
+    };
+
+    Ok(Response::new()
+        .add_messages(vec![reward_msg])
         .add_attributes(vec![
             ("action", "withdraw"),
             ("owner", info.sender.as_str()),
@@ -209,18 +221,18 @@ pub fn update_config(
     let config: Config = read_config(deps.storage)?;
     let state: State = read_state(deps.storage)?;
 
+    // Get the sender's canonical address
     let sender_addr_raw: CanonicalAddr = deps.api.addr_canonicalize(info.sender.as_str())?;
-    let anc_token: Addr = deps.api.addr_humanize(&config.reward_token)?;
-    let gov_addr_raw: CanonicalAddr = deps
-        .api
-        .addr_canonicalize(&query_anc_minter(&deps.querier, anc_token)?)?;
-    if sender_addr_raw != gov_addr_raw {
+
+    // Check if the sender is the owner (i.e. the wallet that instantiated the contract)
+    if sender_addr_raw != config.owner {
         return Err(StdError::generic_err("unauthorized"));
     }
 
     assert_new_schedules(&config, &state, distribution_schedule.clone())?;
 
     let new_config = Config {
+        owner: config.owner,
         reward_token: config.reward_token,
         staking_token: config.staking_token,
         distribution_schedule,
@@ -239,13 +251,9 @@ pub fn migrate_staking(
     let sender_addr_raw: CanonicalAddr = deps.api.addr_canonicalize(info.sender.as_str())?;
     let mut config: Config = read_config(deps.storage)?;
     let mut state: State = read_state(deps.storage)?;
-    let anc_token: Addr = deps.api.addr_humanize(&config.reward_token)?;
-
-    // get gov address by querying anc token minter
-    let gov_addr_raw: CanonicalAddr = deps
-        .api
-        .addr_canonicalize(&query_anc_minter(&deps.querier, anc_token.clone())?)?;
-    if sender_addr_raw != gov_addr_raw {
+    
+    
+    if sender_addr_raw != config.owner {
         return Err(StdError::generic_err("unauthorized"));
     }
 
@@ -287,21 +295,33 @@ pub fn migrate_staking(
     // update state
     store_state(deps.storage, &state)?;
 
-    let remaining_anc = total_distribution_amount.checked_sub(distributed_amount)?;
+    let remaining_tokens = total_distribution_amount.checked_sub(distributed_amount)?;
+
+    let reward_token_msg = match config.reward_token {
+        AssetInfo::Token { ref contract_addr } => {
+            CosmosMsg::Wasm(WasmMsg::Execute {
+                contract_addr: contract_addr.clone(),
+                msg: to_json_binary(&Cw20ExecuteMsg::Transfer {
+                    recipient: new_staking_contract,
+                    amount: remaining_tokens,
+                })?,
+                funds: vec![],
+            })
+        },
+        AssetInfo::NativeToken { ref denom } => {
+            CosmosMsg::Bank(BankMsg::Send {
+                to_address: new_staking_contract,
+                amount: coins(remaining_tokens.u128(), denom),
+            })
+        },
+    };
 
     Ok(Response::new()
-        .add_messages(vec![CosmosMsg::Wasm(WasmMsg::Execute {
-            contract_addr: anc_token.to_string(),
-            msg: to_json_binary(&Cw20ExecuteMsg::Transfer {
-                recipient: new_staking_contract,
-                amount: remaining_anc,
-            })?,
-            funds: vec![],
-        })])
+        .add_messages(vec![reward_token_msg])
         .add_attributes(vec![
             ("action", "migrate_staking"),
             ("distributed_amount", &distributed_amount.to_string()),
-            ("remaining_amount", &remaining_anc.to_string()),
+            ("remaining_amount", &remaining_tokens.to_string()),
         ]))
 }
 
@@ -369,11 +389,17 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
 }
 
 pub fn query_config(deps: Deps) -> StdResult<ConfigResponse> {
-    let state = read_config(deps.storage)?;
+    let config = read_config(deps.storage)?;
+    
+    let reward_token_str = match config.reward_token {
+        AssetInfo::Token { ref contract_addr } => contract_addr.clone(),
+        AssetInfo::NativeToken { ref denom } => denom.clone(),
+    };
+
     let resp = ConfigResponse {
-        reward_token: deps.api.addr_humanize(&state.reward_token)?.to_string(),
-        staking_token: deps.api.addr_humanize(&state.staking_token)?.to_string(),
-        distribution_schedule: state.distribution_schedule,
+        reward_token: reward_token_str,
+        staking_token: deps.api.addr_humanize(&config.staking_token)?.to_string(),
+        distribution_schedule: config.distribution_schedule,
     };
 
     Ok(resp)
