@@ -29,6 +29,10 @@ use choice::util::migrate_version;
 
 use serde::{Deserialize, Serialize};
 
+use injective_cosmwasm::{InjectiveMsgWrapper, InjectiveRoute, InjectiveMsg};
+use injective_cosmwasm::msg::{create_new_denom_msg, create_set_token_metadata_msg};
+
+
 // version info for migration info
 const CONTRACT_NAME: &str = "crates.io:choice-pair";
 const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -46,7 +50,7 @@ pub fn instantiate(
     env: Env,
     _info: MessageInfo,
     msg: InstantiateMsg,
-) -> StdResult<Response> {
+) -> StdResult<Response<CosmosMsg<InjectiveMsgWrapper>>>  {
     set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
 
     let pair_info: &PairInfoRaw = &PairInfoRaw {
@@ -63,29 +67,39 @@ pub fn instantiate(
 
     PAIR_INFO.save(deps.storage, pair_info)?;
 
-    Ok(Response::new().add_submessage(SubMsg {
-        // Create LP token
-        msg: WasmMsg::Instantiate {
-            admin: None,
-            code_id: msg.token_code_id,
-            msg: to_json_binary(&TokenInstantiateMsg {
-                name: "choice liquidity token".to_string(),
-                symbol: "uLP".to_string(),
-                decimals: 6,
-                initial_balances: vec![],
-                mint: Some(MinterResponse {
-                    minter: env.contract.address.to_string(),
-                    cap: None,
-                }),
-            })?,
-            funds: vec![],
-            label: "lp".to_string(),
-        }
-        .into(),
+    let subdenom = "lp".to_string();
+
+    let create_msg = create_new_denom_msg(env.contract.address.to_string(), subdenom.clone());
+
+    let lp_denom = format!("factory/{}/{}", env.contract.address, subdenom);
+
+    let metadata_msg = create_set_token_metadata_msg(
+        lp_denom.clone(),
+        "choice liquidity token".to_string(),
+        "uLP".to_string(),
+        6,
+    );
+
+    let submsg_create = SubMsg {
+        msg: cosmwasm_std::CosmosMsg::Custom(create_msg),
         gas_limit: None,
         id: INSTANTIATE_REPLY_ID,
         reply_on: ReplyOn::Success,
-    }))
+        payload: Binary::default()
+    };
+
+    let submsg_set_metadata = SubMsg {
+        msg: cosmwasm_std::CosmosMsg::Custom(metadata_msg),
+        gas_limit: None,
+        id: INSTANTIATE_REPLY_ID + 1,
+        reply_on: ReplyOn::Success,
+        payload: Binary::default()
+    };
+
+    Ok(Response::new()
+        .add_submessage(submsg_create)
+        .add_submessage(submsg_set_metadata)
+        .add_attribute("lp_denom", lp_denom))
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
@@ -163,9 +177,10 @@ pub fn receive_cw20(
             let config: PairInfoRaw = PAIR_INFO.load(deps.storage)?;
             let pools: [Asset; 2] =
                 config.query_pools(&deps.querier, deps.api, env.contract.address.clone())?;
+            
             for pool in pools.iter() {
                 if let AssetInfo::Token { contract_addr, .. } = &pool.info {
-                    if contract_addr == &info.sender {
+                    if contract_addr == &info.sender.to_string() {
                         authorized = true;
                     }
                 }
@@ -292,8 +307,7 @@ pub fn provide_liquidity(
         // Initial share = collateral amount
         let deposit0: Uint256 = deposits[0].into();
         let deposit1: Uint256 = deposits[1].into();
-        let share: Uint128 = match (Decimal256::from_ratio(deposit0.mul(deposit1), 1u8).sqrt()
-            * Uint256::from(1u8))
+        let share: Uint128 = match (Uint256::from(1u8).mul_floor(Decimal256::from_ratio(deposit0.mul(deposit1), 1u8).sqrt()))
         .try_into()
         {
             Ok(share) => share,
@@ -354,7 +368,7 @@ pub fn provide_liquidity(
 
         let remain_amount = deposits[i] - desired_amount;
         if let Some(slippage_tolerance) = slippage_tolerance {
-            if remain_amount > deposits[i] * slippage_tolerance {
+            if remain_amount > deposits[i].mul_floor(slippage_tolerance) {
                 return Err(ContractError::MaxSlippageAssertion {});
             }
         }
@@ -433,7 +447,7 @@ pub fn withdraw_liquidity(
         .iter()
         .map(|a| Asset {
             info: a.info.clone(),
-            amount: a.amount * share_ratio,
+            amount: a.amount.mul_floor(share_ratio),
         })
         .collect();
 
@@ -735,9 +749,9 @@ fn compute_swap(
 
     // calculate spread & commission
     let spread_amount: Uint256 =
-        (offer_amount * Decimal256::from_ratio(ask_pool, offer_pool)) - return_amount;
-    let mut commission_amount: Uint256 = return_amount * commission_rate;
-    if return_amount != (commission_amount * (Decimal256::one() / commission_rate)) {
+        (offer_amount.mul_floor(Decimal256::from_ratio(ask_pool, offer_pool))) - return_amount;
+    let mut commission_amount: Uint256 = return_amount.mul_floor(commission_rate);
+    if return_amount != (commission_amount.mul_floor(Decimal256::one() / commission_rate)) {
         commission_amount += Uint256::from(1u128);
     }
     // commission will be absorbed to pool
@@ -779,8 +793,8 @@ fn compute_offer_amount(
 
     let one_minus_commission = Decimal256::one() - commission_rate;
     let inv_one_minus_commission = Decimal256::one() / one_minus_commission;
-    let mut before_commission_deduction: Uint256 = ask_amount * inv_one_minus_commission;
-    if before_commission_deduction * one_minus_commission != ask_amount {
+    let mut before_commission_deduction: Uint256 = ask_amount.mul_floor(inv_one_minus_commission);
+    if before_commission_deduction.mul_floor(one_minus_commission) != ask_amount {
         before_commission_deduction += Uint256::from(1u8);
     }
 
@@ -793,7 +807,7 @@ fn compute_offer_amount(
 
     let offer_amount: Uint256 = after_offer_pool - offer_pool;
     let before_spread_deduction: Uint256 =
-        offer_amount * Decimal256::from_ratio(ask_pool, offer_pool);
+        offer_amount.mul_floor(Decimal256::from_ratio(ask_pool, offer_pool));
 
     let spread_amount = if before_spread_deduction > before_commission_deduction {
         before_spread_deduction - before_commission_deduction
@@ -861,7 +875,7 @@ pub fn assert_max_spread(
         let belief_price: Decimal256 = Decimal256::from_str(&belief_price.to_string())?;
         let max_spread: Decimal256 = Decimal256::from_str(&max_spread.to_string())?;
 
-        let expected_return = offer_amount * (Decimal256::one() / belief_price);
+        let expected_return = offer_amount.mul_floor(Decimal256::one() / belief_price);
         let spread_amount = if expected_return > return_amount {
             expected_return - return_amount
         } else {

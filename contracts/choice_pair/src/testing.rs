@@ -6,10 +6,10 @@ use crate::error::ContractError;
 use std::str::FromStr;
 use choice::mock_querier::mock_dependencies;
 
-use cosmwasm_std::testing::{mock_env, mock_info, MOCK_CONTRACT_ADDR};
+use cosmwasm_std::testing::{mock_env, message_info, MOCK_CONTRACT_ADDR};
 use cosmwasm_std::{
-    attr, to_json_binary, BankMsg, Coin, CosmosMsg, Decimal, Reply, ReplyOn, Response, StdError, SubMsg,
-    SubMsgResponse, SubMsgResult, Uint128, WasmMsg,
+    attr, to_json_binary, BankMsg, Binary, Coin, CosmosMsg, Decimal, Reply, ReplyOn, Response, StdError, SubMsg,
+    SubMsgResponse, SubMsgResult, Uint128, WasmMsg, MsgResponse
 };
 use cw20::{Cw20ExecuteMsg, Cw20ReceiveMsg, MinterResponse};
 use choice::asset::{Asset, AssetInfo, PairInfo};
@@ -40,7 +40,7 @@ fn proper_initialization() {
 
     // we can just call .unwrap() to assert this was a success
     let env = mock_env();
-    let info = mock_info("addr0000", &[]);
+    let info = message_info(&deps.api.addr_make("addr0000"), &[]);
     let res = instantiate(deps.as_mut(), env, info, msg).unwrap();
     assert_eq!(
         res.messages,
@@ -66,20 +66,24 @@ fn proper_initialization() {
             gas_limit: None,
             id: 1,
             reply_on: ReplyOn::Success,
+            payload: Binary::default(),
         }]
     );
 
     // store liquidity token
     let reply_msg = Reply {
         id: 1,
+        payload: Binary::default(),
+        gas_used: 0,
         result: SubMsgResult::Ok(SubMsgResponse {
             events: vec![],
-            data: Some(
-                vec![
+            data: None, // deprecated, so leave it as None
+            msg_responses: vec![MsgResponse {
+                type_url: "".to_string(), // or some appropriate type_url if needed
+                value: Binary::from(vec![
                     10, 13, 108, 105, 113, 117, 105, 100, 105, 116, 121, 48, 48, 48, 48,
-                ]
-                .into(),
-            ),
+                ]),
+            }],
         }),
     };
 
@@ -134,21 +138,24 @@ fn provide_liquidity() {
     };
 
     let env = mock_env();
-    let info = mock_info("addr0000", &[]);
+    let info = message_info(&deps.api.addr_make("addr0000"), &[]);
     // we can just call .unwrap() to assert this was a success
     let _res = instantiate(deps.as_mut(), env, info, msg).unwrap();
 
     // store liquidity token
     let reply_msg = Reply {
         id: 1,
+        payload: Binary::default(),
+        gas_used: 0,
         result: SubMsgResult::Ok(SubMsgResponse {
             events: vec![],
-            data: Some(
-                vec![
+            data: None, // deprecated, so leave it as None
+            msg_responses: vec![MsgResponse {
+                type_url: "".to_string(), // or some appropriate type_url if needed
+                value: Binary::from(vec![
                     10, 13, 108, 105, 113, 117, 105, 100, 105, 116, 121, 48, 48, 48, 48,
-                ]
-                .into(),
-            ),
+                ]),
+            }],
         }),
     };
 
@@ -175,8 +182,8 @@ fn provide_liquidity() {
         slippage_tolerance: None,
     };
     let env = mock_env();
-    let info = mock_info(
-        "addr0000",
+    let info = message_info(
+        &deps.api.addr_make("addr0000"),
         &[Coin {
             denom: "uusd".to_string(),
             amount: Uint128::from(1u128),
@@ -218,8 +225,8 @@ fn provide_liquidity() {
     };
 
     let env = mock_env();
-    let info = mock_info(
-        "addr0000",
+    let info = message_info(
+        &deps.api.addr_make("addr0000"),
         &[Coin {
             denom: "uusd".to_string(),
             amount: Uint128::from(1_100u128),
@@ -313,8 +320,7 @@ fn provide_liquidity() {
     };
 
     let env = mock_env();
-    let info = mock_info(
-        "addr0000",
+    let info = message_info(&deps.api.addr_make("addr0000"),
         &[Coin {
             denom: "uusd".to_string(),
             amount: Uint128::from(200u128),
@@ -371,8 +377,7 @@ fn provide_liquidity() {
     };
 
     let env = mock_env();
-    let info = mock_info(
-        "addr0000",
+    let info = message_info(&deps.api.addr_make("addr0000"),
         &[Coin {
             denom: "uusd".to_string(),
             amount: Uint128::from(100u128),
@@ -431,8 +436,7 @@ fn provide_liquidity() {
     };
 
     let env = mock_env();
-    let info = mock_info(
-        "addr0000",
+    let info = message_info(&deps.api.addr_make("addr0000"),
         &[Coin {
             denom: "uusd".to_string(),
             amount: Uint128::from(100u128),
@@ -489,8 +493,7 @@ fn provide_liquidity() {
     };
 
     let env = mock_env();
-    let info = mock_info(
-        "addr0001",
+    let info = message_info(&deps.api.addr_make("addr0001"),
         &[Coin {
             denom: "uusd".to_string(),
             amount: Uint128::from(98u128),
@@ -561,21 +564,24 @@ fn withdraw_liquidity() {
     };
 
     let env = mock_env();
-    let info = mock_info("addr0000", &[]);
+    let info = message_info(&deps.api.addr_make("addr0000"), &[]);
     // we can just call .unwrap() to assert this was a success
     let _res = instantiate(deps.as_mut(), env, info, msg).unwrap();
 
     // store liquidity token
     let reply_msg = Reply {
         id: 1,
+        payload: Binary::default(),
+        gas_used: 0,
         result: SubMsgResult::Ok(SubMsgResponse {
             events: vec![],
-            data: Some(
-                vec![
+            data: None, // deprecated, so leave it as None
+            msg_responses: vec![MsgResponse {
+                type_url: "".to_string(), // or some appropriate type_url if needed
+                value: Binary::from(vec![
                     10, 13, 108, 105, 113, 117, 105, 100, 105, 116, 121, 48, 48, 48, 48,
-                ]
-                .into(),
-            ),
+                ]),
+            }],
         }),
     };
 
@@ -593,7 +599,7 @@ fn withdraw_liquidity() {
     });
 
     let env = mock_env();
-    let info = mock_info("liquidity0000", &[]);
+    let info = message_info(&deps.api.addr_make("liquidity0000"), &[]);
     let res = execute(deps.as_mut(), env, info, msg).unwrap();
     let log_withdrawn_share = res.attributes.get(2).expect("no log");
     let log_refund_assets = res.attributes.get(3).expect("no log");
@@ -668,7 +674,7 @@ fn withdraw_liquidity() {
     });
 
     let env = mock_env();
-    let info = mock_info("liquidity0000", &[]);
+    let info = message_info(&deps.api.addr_make("liquidity0000"), &[]);
     let res = execute(deps.as_mut(), env, info, msg).unwrap_err();
 
     assert_eq!(
@@ -691,7 +697,7 @@ fn withdraw_liquidity() {
     });
 
     let env = mock_env();
-    let info = mock_info("liquidity0000", &[]);
+    let info = message_info(&deps.api.addr_make("liquidity0000"), &[]);
     let err = execute(deps.as_mut(), env, info, msg).unwrap_err();
     assert_eq!(err, ContractError::ExpiredDeadline {})
 }
@@ -705,9 +711,17 @@ fn failed_reply_with_unknown_id() {
         mock_env(),
         Reply {
             id: 9,
+            payload: Binary::default(),
+            gas_used: 0,
             result: SubMsgResult::Ok(SubMsgResponse {
                 events: vec![],
-                data: Some(vec![].into()),
+                data: None, // deprecated, so leave it as None
+                msg_responses: vec![MsgResponse {
+                    type_url: "".to_string(), // or some appropriate type_url if needed
+                    value: Binary::from(vec![
+                        
+                    ]),
+                }],
             }),
         },
     );
@@ -755,21 +769,24 @@ fn try_native_to_token() {
     };
 
     let env = mock_env();
-    let info = mock_info("addr0000", &[]);
+    let info = message_info(&deps.api.addr_make("addr0000"), &[]);
     // we can just call .unwrap() to assert this was a success
     let _res = instantiate(deps.as_mut(), env, info, msg).unwrap();
 
     // store liquidity token
     let reply_msg = Reply {
         id: 1,
+        payload: Binary::default(),
+        gas_used: 0,
         result: SubMsgResult::Ok(SubMsgResponse {
             events: vec![],
-            data: Some(
-                vec![
+            data: None, // deprecated, so leave it as None
+            msg_responses: vec![MsgResponse {
+                type_url: "".to_string(), // or some appropriate type_url if needed
+                value: Binary::from(vec![
                     10, 13, 108, 105, 113, 117, 105, 100, 105, 116, 121, 48, 48, 48, 48,
-                ]
-                .into(),
-            ),
+                ]),
+            }],
         }),
     };
 
@@ -789,8 +806,7 @@ fn try_native_to_token() {
         deadline: None,
     };
     let env = mock_env();
-    let info = mock_info(
-        "addr0000",
+    let info = message_info(&deps.api.addr_make("addr0000"),
         &[Coin {
             denom: "uusd".to_string(),
             amount: offer_amount,
@@ -802,7 +818,7 @@ fn try_native_to_token() {
     // current price is 1.5, so expected return without spread is 1000
     // 952.380952 = 20000 - 20000 * 30000 / (30000 + 1500)
     let expected_ret_amount = Uint128::from(952_380_952u128);
-    let expected_spread_amount = (offer_amount * exchange_rate)
+    let expected_spread_amount = (offer_amount.mul_floor(exchange_rate))
         .checked_sub(expected_ret_amount)
         .unwrap();
     let expected_commission_amount =
@@ -943,21 +959,24 @@ fn try_token_to_native() {
     };
 
     let env = mock_env();
-    let info = mock_info("addr0000", &[]);
+    let info = message_info(&deps.api.addr_make("addr0000"), &[]);
     // we can just call .unwrap() to assert this was a success
     let _res = instantiate(deps.as_mut(), env, info, msg).unwrap();
 
     // store liquidity token
     let reply_msg = Reply {
         id: 1,
+        payload: Binary::default(),
+        gas_used: 0,
         result: SubMsgResult::Ok(SubMsgResponse {
             events: vec![],
-            data: Some(
-                vec![
+            data: None, // deprecated, so leave it as None
+            msg_responses: vec![MsgResponse {
+                type_url: "".to_string(), // or some appropriate type_url if needed
+                value: Binary::from(vec![
                     10, 13, 108, 105, 113, 117, 105, 100, 105, 116, 121, 48, 48, 48, 48,
-                ]
-                .into(),
-            ),
+                ]),
+            }],
         }),
     };
 
@@ -977,7 +996,7 @@ fn try_token_to_native() {
         deadline: None,
     };
     let env = mock_env();
-    let info = mock_info("addr0000", &[]);
+    let info = message_info(&deps.api.addr_make("addr0000"), &[]);
     let res = execute(deps.as_mut(), env, info, msg).unwrap_err();
     match res {
         ContractError::Unauthorized {} => (),
@@ -997,7 +1016,7 @@ fn try_token_to_native() {
         .unwrap(),
     });
     let env = mock_env();
-    let info = mock_info("asset0000", &[]);
+    let info = message_info(&deps.api.addr_make("asset0000"), &[]);
 
     let res = execute(deps.as_mut(), env, info, msg).unwrap();
     let msg_transfer = res.messages.get(0).expect("no message");
@@ -1005,7 +1024,7 @@ fn try_token_to_native() {
     // current price is 1.5, so expected return without spread is 1000
     // 952.380952 = 20000 - 20000 * 30000 / (30000 + 1500)
     let expected_ret_amount = Uint128::from(952_380_952u128);
-    let expected_spread_amount = (offer_amount * exchange_rate)
+    let expected_spread_amount = (offer_amount.mul_floor(exchange_rate))
         .checked_sub(expected_ret_amount)
         .unwrap();
     let expected_commission_amount =
@@ -1117,7 +1136,7 @@ fn try_token_to_native() {
         .unwrap(),
     });
     let env = mock_env();
-    let info = mock_info("liquidity0000", &[]);
+    let info = message_info(&deps.api.addr_make("liquidity0000"), &[]);
     let res = execute(deps.as_mut(), env, info, msg).unwrap_err();
     match res {
         ContractError::Unauthorized {} => (),
@@ -1335,21 +1354,24 @@ fn test_query_pool() {
     };
 
     let env = mock_env();
-    let info = mock_info("addr0000", &[]);
+    let info = message_info(&deps.api.addr_make("addr0000"), &[]);
     // we can just call .unwrap() to assert this was a success
     let _res = instantiate(deps.as_mut(), env, info, msg).unwrap();
 
     // store liquidity token
     let reply_msg = Reply {
         id: 1,
+        payload: Binary::default(),
+        gas_used: 0,
         result: SubMsgResult::Ok(SubMsgResponse {
             events: vec![],
-            data: Some(
-                vec![
+            data: None, // deprecated, so leave it as None
+            msg_responses: vec![MsgResponse {
+                type_url: "".to_string(), // or some appropriate type_url if needed
+                value: Binary::from(vec![
                     10, 13, 108, 105, 113, 117, 105, 100, 105, 116, 121, 48, 48, 48, 48,
-                ]
-                .into(),
-            ),
+                ]),
+            }],
         }),
     };
 
@@ -1382,7 +1404,7 @@ fn test_assert_minimum_assets_with_equals() {
     let assets = vec![
         Asset {
             info: AssetInfo::NativeToken {
-                denom: "uluna".to_string(),
+                denom: "inj".to_string(),
             },
             amount: Uint128::from(1u128),
         },
@@ -1397,7 +1419,7 @@ fn test_assert_minimum_assets_with_equals() {
     let minimum_assets = Some([
         Asset {
             info: AssetInfo::NativeToken {
-                denom: "uluna".to_string(),
+                denom: "inj".to_string(),
             },
             amount: Uint128::from(1u128),
         },
@@ -1417,7 +1439,7 @@ fn test_assert_minimum_assets_with_normal() {
     let assets = vec![
         Asset {
             info: AssetInfo::NativeToken {
-                denom: "uluna".to_string(),
+                denom: "inj".to_string(),
             },
             amount: Uint128::from(2u128),
         },
@@ -1432,7 +1454,7 @@ fn test_assert_minimum_assets_with_normal() {
     let minimum_assets = Some([
         Asset {
             info: AssetInfo::NativeToken {
-                denom: "uluna".to_string(),
+                denom: "inj".to_string(),
             },
             amount: Uint128::from(1u128),
         },
@@ -1452,7 +1474,7 @@ fn test_assert_minimum_assets_with_less_all() {
     let assets = vec![
         Asset {
             info: AssetInfo::NativeToken {
-                denom: "uluna".to_string(),
+                denom: "inj".to_string(),
             },
             amount: Uint128::from(1u128),
         },
@@ -1467,7 +1489,7 @@ fn test_assert_minimum_assets_with_less_all() {
     let minimum_assets = Some([
         Asset {
             info: AssetInfo::NativeToken {
-                denom: "uluna".to_string(),
+                denom: "inj".to_string(),
             },
             amount: Uint128::from(2u128),
         },
@@ -1483,8 +1505,8 @@ fn test_assert_minimum_assets_with_less_all() {
     assert_eq!(
         err,
         ContractError::MinAmountAssertion {
-            min_asset: "2uluna".to_string(),
-            asset: "1uluna".to_string()
+            min_asset: "2inj".to_string(),
+            asset: "1inj".to_string()
         }
     )
 }
@@ -1494,7 +1516,7 @@ fn test_assert_minimum_assets_with_less_second_asset() {
     let assets = vec![
         Asset {
             info: AssetInfo::NativeToken {
-                denom: "uluna".to_string(),
+                denom: "inj".to_string(),
             },
             amount: Uint128::from(1u128),
         },
@@ -1509,7 +1531,7 @@ fn test_assert_minimum_assets_with_less_second_asset() {
     let minimum_assets = Some([
         Asset {
             info: AssetInfo::NativeToken {
-                denom: "uluna".to_string(),
+                denom: "inj".to_string(),
             },
             amount: Uint128::from(1u128),
         },
@@ -1536,7 +1558,7 @@ fn test_assert_minimum_assets_with_less_first_asset() {
     let assets = vec![
         Asset {
             info: AssetInfo::NativeToken {
-                denom: "uluna".to_string(),
+                denom: "inj".to_string(),
             },
             amount: Uint128::from(1u128),
         },
@@ -1551,7 +1573,7 @@ fn test_assert_minimum_assets_with_less_first_asset() {
     let minimum_assets = Some([
         Asset {
             info: AssetInfo::NativeToken {
-                denom: "uluna".to_string(),
+                denom: "inj".to_string(),
             },
             amount: Uint128::from(2u128),
         },
@@ -1567,8 +1589,8 @@ fn test_assert_minimum_assets_with_less_first_asset() {
     assert_eq!(
         err,
         ContractError::MinAmountAssertion {
-            min_asset: "2uluna".to_string(),
-            asset: "1uluna".to_string()
+            min_asset: "2inj".to_string(),
+            asset: "1inj".to_string()
         }
     )
 }
@@ -1578,7 +1600,7 @@ fn test_assert_minimum_assets_with_unsorted_less_first_asset() {
     let assets = vec![
         Asset {
             info: AssetInfo::NativeToken {
-                denom: "uluna".to_string(),
+                denom: "inj".to_string(),
             },
             amount: Uint128::from(1u128),
         },
@@ -1599,7 +1621,7 @@ fn test_assert_minimum_assets_with_unsorted_less_first_asset() {
         },
         Asset {
             info: AssetInfo::NativeToken {
-                denom: "uluna".to_string(),
+                denom: "inj".to_string(),
             },
             amount: Uint128::from(2u128),
         },
@@ -1609,8 +1631,8 @@ fn test_assert_minimum_assets_with_unsorted_less_first_asset() {
     assert_eq!(
         err,
         ContractError::MinAmountAssertion {
-            min_asset: "2uluna".to_string(),
-            asset: "1uluna".to_string()
+            min_asset: "2inj".to_string(),
+            asset: "1inj".to_string()
         }
     )
 }
@@ -1620,7 +1642,7 @@ fn test_assert_minimum_assets_with_unknown_asset() {
     let assets = vec![
         Asset {
             info: AssetInfo::NativeToken {
-                denom: "uluna".to_string(),
+                denom: "inj".to_string(),
             },
             amount: Uint128::from(2u128),
         },
@@ -1641,7 +1663,7 @@ fn test_assert_minimum_assets_with_unknown_asset() {
         },
         Asset {
             info: AssetInfo::NativeToken {
-                denom: "uluna".to_string(),
+                denom: "inj".to_string(),
             },
             amount: Uint128::from(1u128),
         },

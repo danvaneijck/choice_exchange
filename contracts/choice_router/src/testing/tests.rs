@@ -1,4 +1,4 @@
-use cosmwasm_std::testing::{mock_env, mock_info, MOCK_CONTRACT_ADDR};
+use cosmwasm_std::testing::{mock_env, message_info, MOCK_CONTRACT_ADDR};
 use cosmwasm_std::{
     coin, from_json, to_json_binary, Addr, Coin, CosmosMsg, StdError, SubMsg, Uint128, WasmMsg,
 };
@@ -23,7 +23,7 @@ fn proper_initialization() {
         choice_factory: "choicefactory".to_string(),
     };
 
-    let info = mock_info("addr0000", &[]);
+    let info = message_info(&deps.api.addr_make("addr0000"), &[]);
 
     // we can just call .unwrap() to assert this was a success
     let _res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
@@ -46,7 +46,7 @@ fn execute_swap_operations() {
         choice_factory: "choicefactory".to_string(),
     };
 
-    let info = mock_info("addr0000", &[]);
+    let info = message_info(&deps.api.addr_make("addr0000"), &[]);
 
     // we can just call .unwrap() to assert this was a success
     let _res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
@@ -58,7 +58,7 @@ fn execute_swap_operations() {
         deadline: None,
     };
 
-    let info = mock_info("addr0000", &[]);
+    let info = message_info(&deps.api.addr_make("addr0000"), &[]);
     let res = execute(deps.as_mut(), mock_env(), info, msg);
     match res {
         Err(StdError::GenericErr { msg, .. }) => assert_eq!(msg, "must provide operations"),
@@ -80,12 +80,12 @@ fn execute_swap_operations() {
                     contract_addr: "asset0001".to_string(),
                 },
                 ask_asset_info: AssetInfo::NativeToken {
-                    denom: "uluna".to_string(),
+                    denom: "inj".to_string(),
                 },
             },
             SwapOperation::Choice {
                 offer_asset_info: AssetInfo::NativeToken {
-                    denom: "uluna".to_string(),
+                    denom: "inj".to_string(),
                 },
                 ask_asset_info: AssetInfo::Token {
                     contract_addr: "asset0002".to_string(),
@@ -97,7 +97,7 @@ fn execute_swap_operations() {
         deadline: None,
     };
 
-    let info = mock_info("addr0000", &[]);
+    let info = message_info(&deps.api.addr_make("addr0000"), &[]);
     let res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
     assert_eq!(
         res.messages,
@@ -128,7 +128,7 @@ fn execute_swap_operations() {
                             contract_addr: "asset0001".to_string(),
                         },
                         ask_asset_info: AssetInfo::NativeToken {
-                            denom: "uluna".to_string(),
+                            denom: "inj".to_string(),
                         },
                     },
                     to: None,
@@ -142,7 +142,7 @@ fn execute_swap_operations() {
                 msg: to_json_binary(&ExecuteMsg::ExecuteSwapOperation {
                     operation: SwapOperation::Choice {
                         offer_asset_info: AssetInfo::NativeToken {
-                            denom: "uluna".to_string(),
+                            denom: "inj".to_string(),
                         },
                         ask_asset_info: AssetInfo::Token {
                             contract_addr: "asset0002".to_string(),
@@ -187,12 +187,12 @@ fn execute_swap_operations() {
                         contract_addr: "asset0001".to_string(),
                     },
                     ask_asset_info: AssetInfo::NativeToken {
-                        denom: "uluna".to_string(),
+                        denom: "inj".to_string(),
                     },
                 },
                 SwapOperation::Choice {
                     offer_asset_info: AssetInfo::NativeToken {
-                        denom: "uluna".to_string(),
+                        denom: "inj".to_string(),
                     },
                     ask_asset_info: AssetInfo::Token {
                         contract_addr: "asset0002".to_string(),
@@ -206,7 +206,7 @@ fn execute_swap_operations() {
         .unwrap(),
     });
 
-    let info = mock_info("asset0000", &[]);
+    let info = message_info(&deps.api.addr_make("asset0000"), &[]);
     let res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
     assert_eq!(
         res.messages,
@@ -237,7 +237,7 @@ fn execute_swap_operations() {
                             contract_addr: "asset0001".to_string(),
                         },
                         ask_asset_info: AssetInfo::NativeToken {
-                            denom: "uluna".to_string(),
+                            denom: "inj".to_string(),
                         },
                     },
                     to: None,
@@ -251,7 +251,7 @@ fn execute_swap_operations() {
                 msg: to_json_binary(&ExecuteMsg::ExecuteSwapOperation {
                     operation: SwapOperation::Choice {
                         offer_asset_info: AssetInfo::NativeToken {
-                            denom: "uluna".to_string(),
+                            denom: "inj".to_string(),
                         },
                         ask_asset_info: AssetInfo::Token {
                             contract_addr: "asset0002".to_string(),
@@ -273,7 +273,7 @@ fn execute_swap_operation() {
         choice_factory: "choicefactory".to_string(),
     };
 
-    let info = mock_info("addr0000", &[]);
+    let info = message_info(&deps.api.addr_make("addr0000"), &[]);
 
     // we can just call .unwrap() to assert this was a success
     let _res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
@@ -320,14 +320,14 @@ fn execute_swap_operation() {
         to: None,
         deadline: None,
     };
-    let info = mock_info("addr0000", &[]);
+    let info = message_info(&deps.api.addr_make("addr0000"), &[]);
     let res = execute(deps.as_mut(), mock_env(), info, msg.clone());
     match res {
         Err(StdError::GenericErr { msg, .. }) => assert_eq!(msg, "unauthorized"),
         _ => panic!("DO NOT ENTER HERE"),
     }
 
-    let info = mock_info(MOCK_CONTRACT_ADDR, &[]);
+    let info = message_info(&deps.api.addr_make(MOCK_CONTRACT_ADDR), &[]);
     let res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
     assert_eq!(
         res.messages,
@@ -363,7 +363,7 @@ fn execute_swap_operation() {
         to: Some("addr0000".to_string()),
         deadline: None,
     };
-    let info = mock_info(MOCK_CONTRACT_ADDR, &[]);
+    let info = message_info(&deps.api.addr_make(MOCK_CONTRACT_ADDR), &[]);
     let res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
     assert_eq!(
         res.messages,
@@ -423,7 +423,7 @@ fn execute_swap_operation() {
         deadline: None,
     };
 
-    let info = mock_info(MOCK_CONTRACT_ADDR, &[]);
+    let info = message_info(&deps.api.addr_make(MOCK_CONTRACT_ADDR), &[]);
     let res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
     assert_eq!(
         res.messages,
@@ -460,7 +460,7 @@ fn query_buy_with_routes() {
         choice_factory: "choicefactory".to_string(),
     };
 
-    let info = mock_info("addr0000", &[]);
+    let info = message_info(&deps.api.addr_make("addr0000"), &[]);
 
     // we can just call .unwrap() to assert this was a success
     let _res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
@@ -481,7 +481,7 @@ fn query_buy_with_routes() {
                     contract_addr: "asset0000".to_string(),
                 },
                 ask_asset_info: AssetInfo::NativeToken {
-                    denom: "uluna".to_string(),
+                    denom: "inj".to_string(),
                 },
             },
         ],
@@ -508,14 +508,14 @@ fn query_buy_with_routes() {
                 },
             ),
             (
-                &"asset0000uluna".to_string(),
+                &"asset0000inj".to_string(),
                 &PairInfo {
                     asset_infos: [
                         AssetInfo::Token {
                             contract_addr: "asset0000".to_string(),
                         },
                         AssetInfo::NativeToken {
-                            denom: "uluna".to_string(),
+                            denom: "inj".to_string(),
                         },
                     ],
                     contract_addr: "pair0001".to_string(),
@@ -526,7 +526,7 @@ fn query_buy_with_routes() {
                 },
             ),
         ],
-        &[("ukrw".to_string(), 6u8), ("uluna".to_string(), 6u8)],
+        &[("ukrw".to_string(), 6u8), ("inj".to_string(), 6u8)],
     );
 
     let res: SimulateSwapOperationsResponse =
@@ -549,7 +549,7 @@ fn query_reverse_routes_with_from_native() {
 
     let target_amount = 1000000u128;
 
-    let info = mock_info("addr0000", &[coin(10000000, "ukrw")]);
+    let info = message_info(&deps.api.addr_make("addr0000"), &[coin(10000000, "ukrw")]);
 
     // we can just call .unwrap() to assert this was a success
     let _res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
@@ -601,7 +601,7 @@ fn query_reverse_routes_with_from_native() {
                 },
             ),
             (
-                &"asset0000uluna".to_string(),
+                &"asset0000inj".to_string(),
                 &PairInfo {
                     contract_addr: "pair0001".to_string(),
                     liquidity_token: "liquidity0001".to_string(),
@@ -610,7 +610,7 @@ fn query_reverse_routes_with_from_native() {
                             contract_addr: "asset0000".to_string(),
                         },
                         AssetInfo::NativeToken {
-                            denom: "uluna".to_string(),
+                            denom: "inj".to_string(),
                         },
                     ],
                     asset_decimals: [8u8, 6u8],
@@ -619,7 +619,7 @@ fn query_reverse_routes_with_from_native() {
                 },
             ),
         ],
-        &[("ukrw".to_string(), 6u8), ("uluna".to_string(), 6u8)],
+        &[("ukrw".to_string(), 6u8), ("inj".to_string(), 6u8)],
     );
 
     let res: SimulateSwapOperationsResponse =
@@ -646,14 +646,14 @@ fn query_reverse_routes_with_from_native() {
         to: None,
         deadline: None,
     };
-    let info = mock_info("addr0", &[coin(offer_amount.u128(), "ukrw")]);
+    let info = message_info(&deps.api.addr_make("addr0"), &[coin(offer_amount.u128(), "ukrw")]);
     let res = execute(deps.as_mut(), mock_env(), info, msg.clone());
     match res {
         Err(StdError::GenericErr { msg, .. }) => assert_eq!(msg, "unauthorized"),
         _ => panic!("DO NOT ENTER HERE"),
     }
 
-    let info = mock_info(MOCK_CONTRACT_ADDR, &[]);
+    let info = message_info(&deps.api.addr_make(MOCK_CONTRACT_ADDR), &[]);
     let res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
 
     assert_eq!(
@@ -688,7 +688,7 @@ fn query_reverse_routes_with_to_native() {
 
     let target_amount = 1000000u128;
 
-    let info = mock_info("addr0000", &[]);
+    let info = message_info(&deps.api.addr_make("addr0000"), &[]);
 
     // we can just call .unwrap() to assert this was a success
     let _res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
@@ -737,7 +737,7 @@ fn query_reverse_routes_with_to_native() {
                 },
             ),
             (
-                &"asset0000uluna".to_string(),
+                &"asset0000inj".to_string(),
                 &PairInfo {
                     contract_addr: "pair0001".to_string(),
                     liquidity_token: "liquidity0001".to_string(),
@@ -746,7 +746,7 @@ fn query_reverse_routes_with_to_native() {
                             contract_addr: "asset0000".to_string(),
                         },
                         AssetInfo::NativeToken {
-                            denom: "uluna".to_string(),
+                            denom: "inj".to_string(),
                         },
                     ],
                     asset_decimals: [8u8, 6u8],
@@ -755,7 +755,7 @@ fn query_reverse_routes_with_to_native() {
                 },
             ),
         ],
-        &[("ukrw".to_string(), 6u8), ("uluna".to_string(), 6u8)],
+        &[("ukrw".to_string(), 6u8), ("inj".to_string(), 6u8)],
     );
 
     let res: SimulateSwapOperationsResponse =
@@ -788,7 +788,7 @@ fn query_reverse_routes_with_to_native() {
         })
         .unwrap(),
     });
-    let info = mock_info("addr0", &[]);
+    let info = message_info(&deps.api.addr_make("addr0"), &[]);
     let res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
 
     assert_eq!(
@@ -825,7 +825,7 @@ fn query_reverse_routes_with_to_native() {
         deadline: None,
     };
 
-    let info = mock_info(MOCK_CONTRACT_ADDR, &[]);
+    let info = message_info(&deps.api.addr_make(MOCK_CONTRACT_ADDR), &[]);
     let res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
 
     assert_eq!(
@@ -867,7 +867,7 @@ fn assert_minimum_receive_native_token() {
         .to_vec(),
     )]);
 
-    let info = mock_info("addr0000", &[]);
+    let info = message_info(&deps.api.addr_make("addr0000"), &[]);
     // success
     let msg = ExecuteMsg::AssertMinimumReceive {
         asset_info: AssetInfo::NativeToken {
@@ -906,7 +906,7 @@ fn assert_minimum_receive_token() {
         &[(&"addr0000".to_string(), &Uint128::from(1000000u128))],
     )]);
 
-    let info = mock_info("addr0000", &[]);
+    let info = message_info(&deps.api.addr_make("addr0000"), &[]);
     // success
     let msg = ExecuteMsg::AssertMinimumReceive {
         asset_info: AssetInfo::Token {

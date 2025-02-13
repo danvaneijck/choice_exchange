@@ -5,8 +5,8 @@ use choice::staking::{
     ConfigResponse, Cw20HookMsg, ExecuteMsg, InstantiateMsg, QueryMsg, StakerInfoResponse,
     StateResponse,
 };
-use choice::asset::{AssetInfo};
-use cosmwasm_std::testing::{mock_env, mock_info};
+use choice::asset::AssetInfo;
+use cosmwasm_std::testing::{mock_env, message_info};
 use cosmwasm_std::{
     attr, from_json, to_json_binary, coins, CosmosMsg, Decimal, StdError, SubMsg, Uint128, WasmMsg, BankMsg
 };
@@ -24,7 +24,7 @@ fn proper_initialization() {
         distribution_schedule: vec![(100, 200, Uint128::from(1000000u128))],
     };
 
-    let info = mock_info("addr0000", &[]);
+    let info = message_info(&deps.api.addr_make("addr0000"), &[]);
 
     // we can just call .unwrap() to assert this was a success
     let _res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
@@ -81,7 +81,7 @@ fn test_bond_tokens() {
         ],
     };
 
-    let info = mock_info("addr0000", &[]);
+    let info = message_info(&deps.api.addr_make("addr0000"), &[]);
     let _res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
 
     let msg = ExecuteMsg::Receive(Cw20ReceiveMsg {
@@ -90,7 +90,7 @@ fn test_bond_tokens() {
         msg: to_json_binary(&Cw20HookMsg::Bond {}).unwrap(),
     });
 
-    let info = mock_info("staking0000", &[]);
+    let info = message_info(&deps.api.addr_make("staking0000"), &[]);
     let mut env = mock_env();
     let _res = execute(deps.as_mut(), env.clone(), info.clone(), msg).unwrap();
 
@@ -187,7 +187,7 @@ fn test_bond_tokens() {
         msg: to_json_binary(&Cw20HookMsg::Bond {}).unwrap(),
     });
 
-    let info = mock_info("staking0001", &[]);
+    let info = message_info(&deps.api.addr_make("staking0001"), &[]);
     let res = execute(deps.as_mut(), mock_env(), info, msg);
     match res {
         Err(StdError::GenericErr { msg, .. }) => assert_eq!(msg, "unauthorized"),
@@ -210,7 +210,7 @@ fn test_unbond() {
         ],
     };
 
-    let info = mock_info("addr0000", &[]);
+    let info = message_info(&deps.api.addr_make("addr0000"), &[]);
     let _res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
 
     // bond 100 tokens
@@ -219,7 +219,7 @@ fn test_unbond() {
         amount: Uint128::from(100u128),
         msg: to_json_binary(&Cw20HookMsg::Bond {}).unwrap(),
     });
-    let info = mock_info("staking0000", &[]);
+    let info = message_info(&deps.api.addr_make("staking0000"), &[]);
     let _res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
 
     // unbond 150 tokens; failed
@@ -227,7 +227,7 @@ fn test_unbond() {
         amount: Uint128::from(150u128),
     };
 
-    let info = mock_info("addr0000", &[]);
+    let info = message_info(&deps.api.addr_make("addr0000"), &[]);
     let res = execute(deps.as_mut(), mock_env(), info, msg).unwrap_err();
     match res {
         StdError::GenericErr { msg, .. } => {
@@ -241,7 +241,7 @@ fn test_unbond() {
         amount: Uint128::from(100u128),
     };
 
-    let info = mock_info("addr0000", &[]);
+    let info = message_info(&deps.api.addr_make("addr0000"), &[]);
     let res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
     assert_eq!(
         res.messages,
@@ -280,7 +280,7 @@ fn test_compute_reward() {
         ],
     };
 
-    let info = mock_info("addr0000", &[]);
+    let info = message_info(&deps.api.addr_make("addr0000"), &[]);
     let _res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
 
     // bond 100 tokens
@@ -289,7 +289,7 @@ fn test_compute_reward() {
         amount: Uint128::from(100u128),
         msg: to_json_binary(&Cw20HookMsg::Bond {}).unwrap(),
     });
-    let info = mock_info("staking0000", &[]);
+    let info = message_info(&deps.api.addr_make("staking0000"), &[]);
     let mut env = mock_env();
     let _res = execute(deps.as_mut(), env.clone(), info.clone(), msg).unwrap();
 
@@ -329,7 +329,7 @@ fn test_compute_reward() {
     // 100 seconds passed
     // 1,000,000 rewards distributed
     env.block.time = env.block.time.plus_seconds(10);
-    let info = mock_info("addr0000", &[]);
+    let info = message_info(&deps.api.addr_make("addr0000"), &[]);
 
     // unbond
     let msg = ExecuteMsg::Unbond {
@@ -403,7 +403,7 @@ fn test_withdraw() {
         ],
     };
 
-    let info = mock_info("addr0000", &[]);
+    let info = message_info(&deps.api.addr_make("addr0000"), &[]);
     let _res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
 
     // bond 100 tokens
@@ -412,7 +412,7 @@ fn test_withdraw() {
         amount: Uint128::from(100u128),
         msg: to_json_binary(&Cw20HookMsg::Bond {}).unwrap(),
     });
-    let info = mock_info("staking0000", &[]);
+    let info = message_info(&deps.api.addr_make("staking0000"), &[]);
     let mut env = mock_env();
     let _res = execute(deps.as_mut(), env.clone(), info, msg).unwrap();
 
@@ -420,7 +420,7 @@ fn test_withdraw() {
     // 1,000,000 rewards distributed
     env.block.time = env.block.time.plus_seconds(100);
 
-    let info = mock_info("addr0000", &[]);
+    let info = message_info(&deps.api.addr_make("addr0000"), &[]);
 
     let msg = ExecuteMsg::Withdraw {};
     let res = execute(deps.as_mut(), env, info, msg).unwrap();
@@ -462,7 +462,7 @@ fn test_migrate_staking() {
         ],
     };
 
-    let info = mock_info("addr0000", &[]);
+    let info = message_info(&deps.api.addr_make("addr0000"), &[]);
     let _res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
 
     // bond 100 tokens
@@ -471,14 +471,14 @@ fn test_migrate_staking() {
         amount: Uint128::from(100u128),
         msg: to_json_binary(&Cw20HookMsg::Bond {}).unwrap(),
     });
-    let info = mock_info("staking0000", &[]);
+    let info = message_info(&deps.api.addr_make("staking0000"), &[]);
     let mut env = mock_env();
     let _res = execute(deps.as_mut(), env.clone(), info, msg).unwrap();
 
     // 100 seconds is passed
     // 1,000,000 rewards distributed
     env.block.time = env.block.time.plus_seconds(100);
-    let info = mock_info("addr0000", &[]);
+    let info = message_info(&deps.api.addr_make("addr0000"), &[]);
 
     let msg = ExecuteMsg::Withdraw {};
     let res = execute(deps.as_mut(), env.clone(), info, msg).unwrap();
@@ -505,7 +505,7 @@ fn test_migrate_staking() {
     };
 
     // unauthorized attempt
-    let info = mock_info("notaddr0000", &[]);
+    let info = message_info(&deps.api.addr_make("notaddr0000"), &[]);
     let res = execute(deps.as_mut(), env.clone(), info, msg.clone());
     match res {
         Err(StdError::GenericErr { msg, .. }) => assert_eq!(msg, "unauthorized"),
@@ -513,7 +513,7 @@ fn test_migrate_staking() {
     }
 
     // successful attempt
-    let info = mock_info("addr0000", &[]);
+    let info = message_info(&deps.api.addr_make("addr0000"), &[]);
     let res = execute(deps.as_mut(), env, info, msg).unwrap();
 
     assert_eq!(
@@ -600,7 +600,7 @@ fn test_update_config() {
         ],
     };
 
-    let info = mock_info("gov0000", &[]);
+    let info = message_info(&deps.api.addr_make("gov0000"), &[]);
     let _res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
 
     let update_config = UpdateConfig {
@@ -611,7 +611,7 @@ fn test_update_config() {
         )],
     };
 
-    let info = mock_info("notgov0000", &[]);
+    let info = message_info(&deps.api.addr_make("notgov0000"), &[]);
     let res = execute(deps.as_mut(), mock_env(), info, update_config);
     match res {
         Err(StdError::GenericErr { msg, .. }) => assert_eq!(msg, "unauthorized"),
@@ -625,14 +625,14 @@ fn test_update_config() {
         amount: Uint128::from(100u128),
         msg: to_json_binary(&Cw20HookMsg::Bond {}).unwrap(),
     });
-    let info = mock_info("staking0000", &[]);
+    let info = message_info(&deps.api.addr_make("staking0000"), &[]);
     let mut env = mock_env();
     let _res = execute(deps.as_mut(), env.clone(), info, msg).unwrap();
 
     // 100 seconds is passed
     // 1,000,000 rewards distributed
     env.block.time = env.block.time.plus_seconds(100);
-    let info = mock_info("addr0000", &[]);
+    let info = message_info(&deps.api.addr_make("addr0000"), &[]);
 
     let msg = ExecuteMsg::Withdraw {};
     let res = execute(deps.as_mut(), env.clone(), info, msg).unwrap();
@@ -680,7 +680,7 @@ fn test_update_config() {
     };
 
 
-    let info = mock_info("gov0000", &[]);
+    let info = message_info(&deps.api.addr_make("gov0000"), &[]);
     let res = execute(deps.as_mut(), mock_env(), info, update_config);
     match res {
         Err(StdError::GenericErr { msg, .. }) => {
@@ -696,19 +696,19 @@ fn test_update_config() {
         amount: Uint128::from(100u128),
         msg: to_json_binary(&Cw20HookMsg::Bond {}).unwrap(),
     });
-    let info = mock_info("staking0000", &[]);
+    let info = message_info(&deps.api.addr_make("staking0000"), &[]);
     let _res = execute(deps.as_mut(), env.clone(), info, msg).unwrap();
 
     // 100 seconds is passed
     // 1,000,000 rewards distributed
     env.block.time = env.block.time.plus_seconds(100);
 
-    let info = mock_info("addr0000", &[]);
+    let info = message_info(&deps.api.addr_make("addr0000"), &[]);
 
     let msg = ExecuteMsg::Withdraw {};
     let _res = execute(deps.as_mut(), env, info, msg).unwrap();
 
-    //cannot update previous scehdule
+    //cannot update previous schedule
     let update_config = UpdateConfig {
         distribution_schedule: vec![
             (
@@ -741,7 +741,7 @@ fn test_update_config() {
 
     deps.querier.with_anc_minter("gov0000".to_string());
 
-    let info = mock_info("gov0000", &[]);
+    let info = message_info(&deps.api.addr_make("gov0000"), &[]);
     let res = execute(deps.as_mut(), mock_env(), info, update_config);
     match res {
         Err(StdError::GenericErr { msg, .. }) => {
@@ -783,7 +783,7 @@ fn test_update_config() {
 
     deps.querier.with_anc_minter("gov0000".to_string());
 
-    let info = mock_info("gov0000", &[]);
+    let info = message_info(&deps.api.addr_make("gov0000"), &[]);
     let res = execute(deps.as_mut(), mock_env(), info, update_config).unwrap();
 
     assert_eq!(res.attributes, vec![("action", "update_config")]);
@@ -855,7 +855,7 @@ fn test_update_config() {
 
     deps.querier.with_anc_minter("gov0000".to_string());
 
-    let info = mock_info("gov0000", &[]);
+    let info = message_info(&deps.api.addr_make("gov0000"), &[]);
     let res = execute(deps.as_mut(), mock_env(), info, update_config).unwrap();
 
     assert_eq!(res.attributes, vec![("action", "update_config")]);
@@ -926,7 +926,7 @@ fn test_update_config() {
 
     deps.querier.with_anc_minter("gov0000".to_string());
 
-    let info = mock_info("gov0000", &[]);
+    let info = message_info(&deps.api.addr_make("gov0000"), &[]);
     let res = execute(deps.as_mut(), mock_env(), info, update_config).unwrap();
 
     assert_eq!(res.attributes, vec![("action", "update_config")]);
@@ -1002,7 +1002,7 @@ fn test_update_config() {
 
     deps.querier.with_anc_minter("gov0000".to_string());
 
-    let info = mock_info("gov0000", &[]);
+    let info = message_info(&deps.api.addr_make("gov0000"), &[]);
     let res = execute(deps.as_mut(), mock_env(), info, update_config).unwrap();
 
     assert_eq!(res.attributes, vec![("action", "update_config")]);
@@ -1066,7 +1066,7 @@ fn test_instantiate_and_query_native_reward_token() {
     };
 
     // Use "addr0000" as the instantiator (owner)
-    let info = mock_info("addr0000", &[]);
+    let info = message_info(&deps.api.addr_make("addr0000"), &[]);
     let _res = instantiate(deps.as_mut(), env.clone(), info, msg).unwrap();
 
     // Query config and verify that the reward token returns the native denom.
@@ -1092,7 +1092,7 @@ fn test_withdraw_native_reward_token() {
         ],
     };
 
-    let info = mock_info("addr0000", &[]);
+    let info = message_info(&deps.api.addr_make("addr0000"), &[]);
     let _res = instantiate(deps.as_mut(), env.clone(), info, msg).unwrap();
 
     // Bond 100 tokens.
@@ -1102,7 +1102,7 @@ fn test_withdraw_native_reward_token() {
         msg: to_json_binary(&Cw20HookMsg::Bond {}).unwrap(),
     });
     // The staking token is expected to be CW20, so we use "staking0000" as sender.
-    let bond_info = mock_info("staking0000", &[]);
+    let bond_info = message_info(&deps.api.addr_make("staking0000"), &[]);
     let _res = execute(deps.as_mut(), env.clone(), bond_info, bond_msg).unwrap();
 
     // Advance time by 100 seconds so that rewards can accumulate.
@@ -1110,7 +1110,7 @@ fn test_withdraw_native_reward_token() {
 
     // Withdraw rewards.
     let withdraw_msg = ExecuteMsg::Withdraw {};
-    let withdraw_info = mock_info("addr0000", &[]);
+    let withdraw_info = message_info(&deps.api.addr_make("addr0000"), &[]);
     let res = execute(deps.as_mut(), env.clone(), withdraw_info, withdraw_msg).unwrap();
 
     // The expected reward (from the first slot) is 1,000,000.

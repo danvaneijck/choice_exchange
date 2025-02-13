@@ -280,8 +280,7 @@ pub fn migrate_staking(
             let distribution_amount_per_second: Decimal = Decimal::from_ratio(s.2, whole_time);
 
             let passed_time = block_time - s.0;
-            let distributed_amount_on_slot =
-                distribution_amount_per_second * Uint128::from(passed_time as u128);
+            let distributed_amount_on_slot = Uint128::from(passed_time as u128).mul_floor(distribution_amount_per_second);
             distributed_amount += distributed_amount_on_slot;
 
             // modify distribution slot
@@ -359,7 +358,7 @@ fn compute_reward(config: &Config, state: &mut State, block_time: u64) {
 
         let time = s.1 - s.0;
         let distribution_amount_per_second: Decimal = Decimal::from_ratio(s.2, time);
-        distributed_amount += distribution_amount_per_second * Uint128::from(passed_time as u128);
+        distributed_amount += Uint128::from(passed_time as u128).mul_floor(distribution_amount_per_second);
     }
 
     state.last_distributed = block_time;
@@ -369,8 +368,8 @@ fn compute_reward(config: &Config, state: &mut State, block_time: u64) {
 
 // withdraw reward to pending reward
 fn compute_staker_reward(state: &State, staker_info: &mut StakerInfo) -> StdResult<()> {
-    let pending_reward = (staker_info.bond_amount * state.global_reward_index)
-        .checked_sub(staker_info.bond_amount * staker_info.reward_index)?;
+    let pending_reward = (staker_info.bond_amount.mul_floor(state.global_reward_index))
+        .checked_sub(staker_info.bond_amount.mul_floor(staker_info.reward_index))?;
 
     staker_info.reward_index = state.global_reward_index;
     staker_info.pending_reward += pending_reward;

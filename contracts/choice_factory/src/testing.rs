@@ -3,10 +3,10 @@ use choice::mock_querier::{mock_dependencies, WasmMockQuerier};
 
 use crate::state::{pair_key, TmpPairInfo, TMP_PAIR_INFO, CONFIG, Config};
 
-use cosmwasm_std::testing::{mock_env, mock_info, MockApi, MockStorage, MOCK_CONTRACT_ADDR};
+use cosmwasm_std::testing::{mock_env, message_info, MockApi, MockStorage, MOCK_CONTRACT_ADDR};
 use cosmwasm_std::{
-    attr, coin, coins, from_json, to_json_binary, Addr, CosmosMsg, OwnedDeps, Reply, ReplyOn,
-    Response, StdError, SubMsg, SubMsgResponse, SubMsgResult, Uint128, WasmMsg, Api,
+    attr, coin, coins, from_json, to_json_binary, Addr, Binary, CosmosMsg, OwnedDeps, Reply, ReplyOn,
+    Response, StdError, SubMsg, SubMsgResponse, SubMsgResult, Uint128, WasmMsg, Api, MsgResponse
 };
 use cw20::Cw20ExecuteMsg;
 use choice::asset::{Asset, AssetInfo, PairInfo};
@@ -17,6 +17,8 @@ use choice::pair::{
     ExecuteMsg as PairExecuteMsg, InstantiateMsg as PairInstantiateMsg,
     MigrateMsg as PairMigrateMsg,
 };
+use crate::response::MsgInstantiateContractResponse;
+use protobuf::Message;
 
 #[test]
 fn proper_initialization() {
@@ -25,11 +27,11 @@ fn proper_initialization() {
     let msg = InstantiateMsg {
         pair_code_id: 321u64,
         token_code_id: 123u64,
-        burn_address: "burnaddr0000".to_string(), // New field
-        fee_wallet_address: "feeaddr0000".to_string(), // New field
+        burn_address: deps.api.addr_make("burnaddr0000").to_string(), // New field
+        fee_wallet_address: deps.api.addr_make("feeaddr0000").to_string(), // New field
     };
 
-    let info = mock_info("addr0000", &[]);
+    let info = message_info(&deps.api.addr_make("addr0000"), &[]);
 
     // we can just call .unwrap() to assert this was a success
     let _res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
@@ -38,9 +40,9 @@ fn proper_initialization() {
     let config_res: ConfigResponse = from_json(&query_res).unwrap();
     assert_eq!(123u64, config_res.token_code_id);
     assert_eq!(321u64, config_res.pair_code_id);
-    assert_eq!("addr0000".to_string(), config_res.owner);
-    assert_eq!("burnaddr0000".to_string(), config_res.burn_address); // New assertion
-    assert_eq!("feeaddr0000".to_string(), config_res.fee_wallet_address); // New assertion
+    assert_eq!(deps.api.addr_make("addr0000").to_string(), config_res.owner);
+    assert_eq!(deps.api.addr_make("burnaddr0000").to_string(), config_res.burn_address); // New assertion
+    assert_eq!(deps.api.addr_make("feeaddr0000").to_string(), config_res.fee_wallet_address); // New assertion
 }
 
 #[test]
@@ -50,19 +52,20 @@ fn update_config() {
     let msg = InstantiateMsg {
         pair_code_id: 321u64,
         token_code_id: 123u64,
-        burn_address: "burnaddr0000".to_string(), // New field
-        fee_wallet_address: "feeaddr0000".to_string(), // New field
+        burn_address: deps.api.addr_make("burnaddr0000").to_string(), // New field
+        fee_wallet_address: deps.api.addr_make("feeaddr0000").to_string(), // New field
     };
 
-    let info = mock_info("addr0000", &[]);
+    let info = message_info(&deps.api.addr_make("addr0000"), &[]);
 
     // we can just call .unwrap() to assert this was a success
     let _res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
 
     // update owner
-    let info = mock_info("addr0000", &[]);
+    let info = message_info(&deps.api.addr_make("addr0000"), &[]);
+    
     let msg = ExecuteMsg::UpdateConfig {
-        owner: Some("addr0001".to_string()),
+        owner: Some(deps.api.addr_make("addr0001").to_string()),
         pair_code_id: None,
         token_code_id: None,
         burn_address: None,
@@ -77,11 +80,11 @@ fn update_config() {
     let config_res: ConfigResponse = from_json(&query_res).unwrap();
     assert_eq!(123u64, config_res.token_code_id);
     assert_eq!(321u64, config_res.pair_code_id);
-    assert_eq!("addr0001".to_string(), config_res.owner);
+    assert_eq!(deps.api.addr_make("addr0001").to_string(), config_res.owner);
 
     // update left items
     let env = mock_env();
-    let info = mock_info("addr0001", &[]);
+    let info = message_info(&deps.api.addr_make("addr0001"), &[]);
     let msg = ExecuteMsg::UpdateConfig {
         owner: None,
         pair_code_id: Some(100u64),
@@ -98,11 +101,11 @@ fn update_config() {
     let config_res: ConfigResponse = from_json(&query_res).unwrap();
     assert_eq!(200u64, config_res.token_code_id);
     assert_eq!(100u64, config_res.pair_code_id);
-    assert_eq!("addr0001".to_string(), config_res.owner);
+    assert_eq!(deps.api.addr_make("addr0001").to_string(), config_res.owner);
 
     // Unauthorized err
     let env = mock_env();
-    let info = mock_info("addr0000", &[]);
+    let info = message_info(&deps.api.addr_make("addr0000"), &[]);
     let msg = ExecuteMsg::UpdateConfig {
         owner: None,
         pair_code_id: None,
@@ -121,20 +124,23 @@ fn update_config() {
 fn init(
     mut deps: OwnedDeps<MockStorage, MockApi, WasmMockQuerier>,
 ) -> OwnedDeps<MockStorage, MockApi, WasmMockQuerier> {
+    let mock_api = MockApi::default();
+
     let msg = InstantiateMsg {
         pair_code_id: 321u64,
         token_code_id: 123u64,
-        burn_address: "burnaddr0000".to_string(), // New field
-        fee_wallet_address: "feeaddr0000".to_string(), // New field
+        burn_address: mock_api.addr_make("burnaddr0000").to_string(), // New field
+        fee_wallet_address: mock_api.addr_make("feeaddr0000").to_string(), // New field
     };
 
     let env = mock_env();
-    let info = mock_info("addr0000", &[]);
+    let info = message_info(&mock_api.addr_make("addr0000"), &[]);
 
     deps.querier.with_token_balances(&[(
-        &"asset0001".to_string(),
-        &[(&"addr0000".to_string(), &Uint128::zero())],
+        &mock_api.addr_make("asset0001").to_string(),
+        &[(&env.contract.address.to_string(), &Uint128::zero())],
     )]);
+
     // we can just call .unwrap() to assert this was a success
     let _res = instantiate(deps.as_mut(), env, info, msg).unwrap();
 
@@ -147,6 +153,7 @@ fn create_pair() {
     deps = init(deps);
     deps.querier
         .with_choice_factory(&[], &[("uusd".to_string(), 6u8)]);
+    
     let assets = [
         Asset {
             info: AssetInfo::NativeToken {
@@ -156,7 +163,7 @@ fn create_pair() {
         },
         Asset {
             info: AssetInfo::Token {
-                contract_addr: "asset0001".to_string(),
+                contract_addr: deps.api.addr_make("asset0001").to_string(),
             },
             amount: Uint128::zero(),
         },
@@ -167,19 +174,22 @@ fn create_pair() {
     };
 
     let env = mock_env();
-    let info = mock_info("addr0000", &[]);
+    let info = message_info(&deps.api.addr_make("addr0000"), &[]);
     let res = execute(deps.as_mut(), env, info, msg).unwrap();
+    
     assert_eq!(
         res.attributes,
         vec![
             attr("action", "create_pair"),
-            attr("pair", "uusd-asset0001")
-        ]
+            attr("pair", "uusd-".to_string() + deps.api.addr_make("asset0001").as_str())
+            ]
     );
+
     assert_eq!(
         res.messages,
         vec![SubMsg {
             id: 1,
+            payload: Binary::default(),
             gas_limit: None,
             reply_on: ReplyOn::Success,
             msg: WasmMsg::Instantiate {
@@ -189,13 +199,13 @@ fn create_pair() {
                             denom: "uusd".to_string(),
                         },
                         AssetInfo::Token {
-                            contract_addr: "asset0001".to_string(),
+                            contract_addr: deps.api.addr_make("asset0001").to_string(),
                         }
                     ],
                     token_code_id: 123u64,
                     asset_decimals: [6u8, 8u8],
-                    burn_address: "burnaddr0000".to_string(), // Add burn address
-                    fee_wallet_address: "feeaddr0000".to_string(), // Add fee wallet address
+                    burn_address: deps.api.addr_make("burnaddr0000").to_string(), // Add burn address
+                    fee_wallet_address: deps.api.addr_make("feeaddr0000").to_string(), // Add fee wallet address
                 })
                 .unwrap(),
                 code_id: 321u64,
@@ -222,7 +232,7 @@ fn create_pair() {
         TmpPairInfo {
             assets: raw_assets,
             pair_key: pair_key(&raw_infos),
-            sender: Addr::unchecked("addr0000"),
+            sender: deps.api.addr_make("addr0000"),
             asset_decimals: [6u8, 8u8]
         }
     );
@@ -230,6 +240,7 @@ fn create_pair() {
 
 #[test]
 fn create_pair_native_token_and_ibc_token() {
+    let mock_api = MockApi::default();
     let mut deps = mock_dependencies(&[
         coin(10u128, "uusd".to_string()),
         coin(10u128, "ibc/HASH".to_string()),
@@ -260,7 +271,7 @@ fn create_pair_native_token_and_ibc_token() {
     };
 
     let env = mock_env();
-    let info = mock_info("addr0000", &[]);
+    let info = message_info(&mock_api.addr_make("addr0000"), &[]);
     let res = execute(deps.as_mut(), env, info, msg).unwrap();
     assert_eq!(
         res.attributes,
@@ -270,6 +281,7 @@ fn create_pair_native_token_and_ibc_token() {
         res.messages,
         vec![SubMsg {
             id: 1,
+            payload: Binary::default(),
             gas_limit: None,
             reply_on: ReplyOn::Success,
             msg: WasmMsg::Instantiate {
@@ -284,8 +296,8 @@ fn create_pair_native_token_and_ibc_token() {
                     ],
                     token_code_id: 123u64,
                     asset_decimals: [6u8, 6u8],
-                    burn_address: "burnaddr0000".to_string(), // Add burn address
-                    fee_wallet_address: "feeaddr0000".to_string(), // Add fee wallet address
+                    burn_address: mock_api.addr_make("burnaddr0000").to_string(), // Add burn address
+                    fee_wallet_address: mock_api.addr_make("feeaddr0000").to_string(), // Add fee wallet address
                 })
                 .unwrap(),
                 code_id: 321u64,
@@ -312,7 +324,7 @@ fn create_pair_native_token_and_ibc_token() {
         TmpPairInfo {
             assets: raw_assets,
             pair_key: pair_key(&raw_infos),
-            sender: Addr::unchecked("addr0000"),
+            sender: mock_api.addr_make("addr0000"),
             asset_decimals: [6u8, 6u8]
         }
     );
@@ -341,7 +353,7 @@ fn fail_to_create_same_pair() {
     let msg = ExecuteMsg::CreatePair { assets };
 
     let env = mock_env();
-    let info = mock_info("addr0000", &[]);
+    let info = message_info(&deps.api.addr_make("addr0000"), &[]);
 
     match execute(deps.as_mut(), env, info, msg).unwrap_err() {
         StdError::GenericErr { msg, .. } => assert_eq!(msg, "same asset".to_string()),
@@ -360,7 +372,7 @@ fn fail_to_create_pair_with_unknown_denom() {
     let assets = [
         Asset {
             info: AssetInfo::NativeToken {
-                denom: "uxxx".to_string(),
+                denom: "token".to_string(),
             },
             amount: Uint128::zero(),
         },
@@ -375,7 +387,7 @@ fn fail_to_create_pair_with_unknown_denom() {
     let msg = ExecuteMsg::CreatePair { assets };
 
     let env = mock_env();
-    let info = mock_info("addr0000", &[]);
+    let info = message_info(&deps.api.addr_make("addr0000"), &[]);
 
     match execute(deps.as_mut(), env, info, msg).unwrap_err() {
         StdError::GenericErr { msg, .. } => assert_eq!(msg, "asset1 is invalid".to_string()),
@@ -389,12 +401,12 @@ fn fail_to_create_pair_with_unknown_token() {
     deps = init(deps);
 
     deps.querier
-        .with_choice_factory(&[], &[("uluna".to_string(), 6u8)]);
+        .with_choice_factory(&[], &[("inj".to_string(), 6u8)]);
 
     let assets = [
         Asset {
             info: AssetInfo::NativeToken {
-                denom: "uluna".to_string(),
+                denom: "inj".to_string(),
             },
             amount: Uint128::zero(),
         },
@@ -409,7 +421,7 @@ fn fail_to_create_pair_with_unknown_token() {
     let msg = ExecuteMsg::CreatePair { assets };
 
     let env = mock_env();
-    let info = mock_info("addr0000", &[]);
+    let info = message_info(&deps.api.addr_make("addr0000"), &[]);
 
     match execute(deps.as_mut(), env, info, msg).unwrap_err() {
         StdError::GenericErr { msg, .. } => assert_eq!(msg, "asset2 is invalid".to_string()),
@@ -425,11 +437,11 @@ fn reply_only_create_pair() {
         .save(
             &mut deps.storage,
             &Config {
-                owner: deps.api.addr_canonicalize("owner0000").unwrap(),
+                owner: deps.api.addr_canonicalize(&deps.api.addr_make("owner0000").to_string()).unwrap(),
                 token_code_id: 123u64,
                 pair_code_id: 321u64,
-                burn_address: deps.api.addr_canonicalize("burnaddr0000").unwrap(),
-                fee_wallet_address: deps.api.addr_canonicalize("feeaddr0000").unwrap(),
+                burn_address: deps.api.addr_canonicalize(&deps.api.addr_make("burnaddr0000").to_string()).unwrap(),
+                fee_wallet_address: deps.api.addr_canonicalize(&deps.api.addr_make("feeaddr0000").to_string()).unwrap(),
             },
         )
         .unwrap();
@@ -437,21 +449,21 @@ fn reply_only_create_pair() {
     deps.querier.with_token_balances(&[(
         &MOCK_CONTRACT_ADDR.to_string(),
         &[
-            (&"asset0000".to_string(), &Uint128::from(100u128)),
-            (&"asset0001".to_string(), &Uint128::from(100u128)),
+            (&deps.api.addr_make("asset0000").to_string(), &Uint128::from(100u128)),
+            (&deps.api.addr_make("asset0001").to_string(), &Uint128::from(100u128)),
         ],
     )]);
 
     let assets = [
         Asset {
             info: AssetInfo::Token {
-                contract_addr: "asset0000".to_string(),
+                contract_addr: deps.api.addr_make("asset0000").to_string(),
             },
             amount: Uint128::zero(),
         },
         Asset {
             info: AssetInfo::Token {
-                contract_addr: "asset0001".to_string(),
+                contract_addr: deps.api.addr_make("asset0001").to_string(),
             },
             amount: Uint128::zero(),
         },
@@ -474,40 +486,55 @@ fn reply_only_create_pair() {
             &TmpPairInfo {
                 assets: raw_assets,
                 pair_key,
-                sender: Addr::unchecked("addr0000"),
+                sender: deps.api.addr_make("addr0000"),
                 asset_decimals: [8u8, 8u8],
             },
         )
         .unwrap();
 
+    let expected = MsgInstantiateContractResponse {
+        address: deps.api.addr_make("pair0000").to_string(),
+        data: vec![],
+        unknown_fields: Default::default(),
+        cached_size: Default::default(),
+    };
+    let expected_bytes = expected.write_to_bytes().unwrap();
+    println!("Expected bytes: {}", hex::encode(expected_bytes.clone()));
+
     let reply_msg = Reply {
         id: 1,
+        payload: Binary::default(),
+        gas_used: 0,
         result: SubMsgResult::Ok(SubMsgResponse {
             events: vec![],
-            data: Some(vec![10, 4, 48, 48, 48, 48].into()),
+            data: None, // deprecated, so leave it as None
+            msg_responses: vec![MsgResponse {
+                type_url: "".to_string(), // or some appropriate type_url if needed
+                value: Binary::from(expected_bytes.clone()),
+            }],
         }),
     };
 
     let asset_infos = [
         AssetInfo::Token {
-            contract_addr: "asset0000".to_string(),
+            contract_addr: deps.api.addr_make("asset0000").to_string(),
         },
         AssetInfo::Token {
-            contract_addr: "asset0001".to_string(),
+            contract_addr: deps.api.addr_make("asset0001").to_string(),
         },
     ];
 
     // register choice pair querier
     deps.querier.with_choice_factory(
         &[(
-            &"0000".to_string(),
+            &deps.api.addr_make("pair0000").to_string(),
             &PairInfo {
                 asset_infos,
-                contract_addr: "0000".to_string(),
-                liquidity_token: "liquidity0000".to_string(),
+                contract_addr: deps.api.addr_make("pair0000").to_string(),
+                liquidity_token: deps.api.addr_make("liquidity0000").to_string(),
                 asset_decimals: [8u8, 8u8],
-                burn_address: "burnaddr0000".to_string(), // New field
-                fee_wallet_address: "feeaddr0000".to_string(), // New field
+                burn_address: deps.api.addr_make("burnaddr0000").to_string(), // New field
+                fee_wallet_address: deps.api.addr_make("feeaddr0000").to_string(), // New field
             },
         )],
         &[],
@@ -516,10 +543,10 @@ fn reply_only_create_pair() {
     let res = reply(deps.as_mut(), mock_env(), reply_msg).unwrap();
 
     assert_eq!(res.messages.len(), 0);
-    assert_eq!(res.attributes[0], attr("pair_contract_addr", "0000"));
+    assert_eq!(res.attributes[0], attr("pair_contract_addr", deps.api.addr_make("pair0000")));
     assert_eq!(
         res.attributes[1],
-        attr("liquidity_token_addr", "liquidity0000")
+        attr("liquidity_token_addr", deps.api.addr_make("liquidity0000"))
     );
 }
 
@@ -531,33 +558,33 @@ fn reply_create_pair_with_provide() {
         .save(
             &mut deps.storage,
             &Config {
-                owner: deps.api.addr_canonicalize("owner0000").unwrap(),
+                owner: deps.api.addr_canonicalize(&deps.api.addr_make("owner0000").to_string()).unwrap(),
                 token_code_id: 123u64,
                 pair_code_id: 321u64,
-                burn_address: deps.api.addr_canonicalize("burnaddr0000").unwrap(),
-                fee_wallet_address: deps.api.addr_canonicalize("feeaddr0000").unwrap(),
+                burn_address: deps.api.addr_canonicalize(&deps.api.addr_make("burnaddr0000").to_string()).unwrap(),
+                fee_wallet_address: deps.api.addr_canonicalize(&deps.api.addr_make("feeaddr0000").to_string()).unwrap(),
             },
         )
         .unwrap();
 
     deps.querier
-        .with_balance(&[(&MOCK_CONTRACT_ADDR.to_string(), coins(100u128, "uluna"))]);
+        .with_balance(&[(&MOCK_CONTRACT_ADDR.to_string(), coins(100u128, "inj"))]);
 
     deps.querier.with_token_balances(&[(
-        &"pair0000".to_string(),
-        &[(&"asset0000".to_string(), &Uint128::from(100u128))],
+        &deps.api.addr_make("pair0000").to_string(),
+        &[(&deps.api.addr_make("asset0000").to_string(), &Uint128::from(100u128))],
     )]);
 
     let assets = [
         Asset {
             info: AssetInfo::NativeToken {
-                denom: "uluna".to_string(),
+                denom: "inj".to_string(),
             },
             amount: Uint128::from(100u128),
         },
         Asset {
             info: AssetInfo::Token {
-                contract_addr: "asset0000".to_string(),
+                contract_addr: deps.api.addr_make("asset0000").to_string(),
             },
             amount: Uint128::from(100u128),
         },
@@ -580,43 +607,59 @@ fn reply_create_pair_with_provide() {
             &TmpPairInfo {
                 assets: raw_assets,
                 pair_key,
-                sender: Addr::unchecked("addr0000"),
+                sender: deps.api.addr_make("addr0000"),
                 asset_decimals: [18u8, 8u8],
             },
         )
         .unwrap();
 
+    let expected = MsgInstantiateContractResponse {
+        address: deps.api.addr_make("pair0000").to_string(),
+        data: vec![],
+        unknown_fields: Default::default(),
+        cached_size: Default::default(),
+    };
+    let expected_bytes = expected.write_to_bytes().unwrap();
+    println!("Expected bytes: {}", hex::encode(expected_bytes.clone()));
+
+
     let reply_msg = Reply {
         id: 1,
+        payload: Binary::default(),
+        gas_used: 0,
         result: SubMsgResult::Ok(SubMsgResponse {
             events: vec![],
-            data: Some(vec![10, 8, 112, 97, 105, 114, 48, 48, 48, 48].into()),
+            data: None, // deprecated, so leave it as None
+            msg_responses: vec![MsgResponse {
+                type_url: "".to_string(), // or some appropriate type_url if needed
+                value: Binary::from(expected_bytes.clone()),
+            }],
         }),
     };
 
     let asset_infos = [
         AssetInfo::NativeToken {
-            denom: "uluna".to_string(),
+            denom: "inj".to_string(),
         },
         AssetInfo::Token {
-            contract_addr: "asset0000".to_string(),
+            contract_addr: deps.api.addr_make("asset0000").to_string()
         },
     ];
 
     // register choice pair querier
     deps.querier.with_choice_factory(
         &[(
-            &"pair0000".to_string(),
+            &deps.api.addr_make("pair0000").to_string(),
             &PairInfo {
                 asset_infos,
-                contract_addr: "pair0000".to_string(),
-                liquidity_token: "liquidity0000".to_string(),
+                contract_addr: deps.api.addr_make("pair0000").to_string(),
+                liquidity_token: deps.api.addr_make("liquidity0000").to_string(),
                 asset_decimals: [18u8, 8u8],
-                burn_address: "burnaddr0000".to_string(), // New field
-                fee_wallet_address: "feeaddr0000".to_string(), // New field
+                burn_address: deps.api.addr_make("burnaddr0000").to_string(), // New field
+                fee_wallet_address: deps.api.addr_make("feeaddr0000").to_string(), // New field
             },
         )],
-        &[("uluna".to_string(), 18u8)],
+        &[("inj".to_string(), 18u8)],
     );
 
     let res = reply(deps.as_mut(), mock_env(), reply_msg).unwrap();
@@ -626,10 +669,11 @@ fn reply_create_pair_with_provide() {
         res.messages[0],
         SubMsg {
             id: 0,
+            payload: Binary::default(),
             msg: CosmosMsg::Wasm(WasmMsg::Execute {
-                contract_addr: "asset0000".to_string(),
+                contract_addr: deps.api.addr_make("asset0000").to_string(),
                 msg: to_json_binary(&Cw20ExecuteMsg::IncreaseAllowance {
-                    spender: "pair0000".to_string(),
+                    spender: deps.api.addr_make("pair0000").to_string(),
                     amount: Uint128::from(100u128),
                     expires: None,
                 })
@@ -644,10 +688,11 @@ fn reply_create_pair_with_provide() {
         res.messages[1],
         SubMsg {
             id: 0,
+            payload: Binary::default(),
             msg: CosmosMsg::Wasm(WasmMsg::Execute {
-                contract_addr: "asset0000".to_string(),
+                contract_addr: deps.api.addr_make("asset0000").to_string(),
                 msg: to_json_binary(&Cw20ExecuteMsg::TransferFrom {
-                    owner: "addr0000".to_string(),
+                    owner: deps.api.addr_make("addr0000").to_string(),
                     amount: Uint128::from(100u128),
                     recipient: MOCK_CONTRACT_ADDR.to_string(),
                 })
@@ -662,25 +707,26 @@ fn reply_create_pair_with_provide() {
         res.messages[2],
         SubMsg {
             id: 0,
+            payload: Binary::default(),
             msg: CosmosMsg::Wasm(WasmMsg::Execute {
-                contract_addr: "pair0000".to_string(),
+                contract_addr: deps.api.addr_make("pair0000").to_string(),
                 msg: to_json_binary(&PairExecuteMsg::ProvideLiquidity {
                     assets,
-                    receiver: Some("addr0000".to_string()),
+                    receiver: Some(deps.api.addr_make("addr0000").to_string()),
                     deadline: None,
                     slippage_tolerance: None,
                 })
                 .unwrap(),
-                funds: coins(100u128, "uluna".to_string()),
+                funds: coins(100u128, "inj".to_string()),
             }),
             gas_limit: None,
             reply_on: ReplyOn::Never,
         }
     );
-    assert_eq!(res.attributes[0], attr("pair_contract_addr", "pair0000"));
+    assert_eq!(res.attributes[0], attr("pair_contract_addr", deps.api.addr_make("pair0000")));
     assert_eq!(
         res.attributes[1],
-        attr("liquidity_token_addr", "liquidity0000")
+        attr("liquidity_token_addr",  deps.api.addr_make("liquidity0000"))
     );
 }
 
@@ -693,9 +739,17 @@ fn failed_reply_with_unknown_id() {
         mock_env(),
         Reply {
             id: 9,
+            payload: Binary::default(),
+            gas_used: 0,
             result: SubMsgResult::Ok(SubMsgResponse {
                 events: vec![],
-                data: Some(vec![].into()),
+                data: None, // deprecated, so leave it as None
+                msg_responses: vec![MsgResponse {
+                    type_url: "".to_string(), // or some appropriate type_url if needed
+                    value: Binary::from(vec![
+                        
+                    ]),
+                }],
             }),
         },
     );
@@ -705,21 +759,21 @@ fn failed_reply_with_unknown_id() {
 
 #[test]
 fn normal_add_allow_native_token() {
-    let mut deps = mock_dependencies(&[coin(1u128, "uluna".to_string())]);
+    let mut deps = mock_dependencies(&[coin(1u128, "inj".to_string())]);
     deps = init(deps);
 
     let msg = ExecuteMsg::AddNativeTokenDecimals {
-        denom: "uluna".to_string(),
+        denom: "inj".to_string(),
         decimals: 6u8,
     };
 
-    let info = mock_info("addr0000", &[]);
+    let info = message_info(&deps.api.addr_make("addr0000"), &[]);
 
     assert_eq!(
         execute(deps.as_mut(), mock_env(), info, msg).unwrap(),
         Response::new().add_attributes(vec![
             ("action", "add_allow_native_token"),
-            ("denom", "uluna"),
+            ("denom", "inj"),
             ("decimals", "6"),
         ])
     );
@@ -728,7 +782,7 @@ fn normal_add_allow_native_token() {
         deps.as_ref(),
         mock_env(),
         QueryMsg::NativeTokenDecimals {
-            denom: "uluna".to_string(),
+            denom: "inj".to_string(),
         },
     )
     .unwrap();
@@ -738,15 +792,15 @@ fn normal_add_allow_native_token() {
 
 #[test]
 fn failed_add_allow_native_token_with_non_admin() {
-    let mut deps = mock_dependencies(&[coin(1u128, "uluna".to_string())]);
+    let mut deps = mock_dependencies(&[coin(1u128, "inj".to_string())]);
     deps = init(deps);
 
     let msg = ExecuteMsg::AddNativeTokenDecimals {
-        denom: "uluna".to_string(),
+        denom: "inj".to_string(),
         decimals: 6u8,
     };
 
-    let info = mock_info("noadmin", &[]);
+    let info = message_info(&deps.api.addr_make("noadmin"), &[]);
 
     assert_eq!(
         execute(deps.as_mut(), mock_env(), info, msg),
@@ -756,15 +810,15 @@ fn failed_add_allow_native_token_with_non_admin() {
 
 #[test]
 fn failed_add_allow_native_token_with_zero_factory_balance() {
-    let mut deps = mock_dependencies(&[coin(0u128, "uluna".to_string())]);
+    let mut deps = mock_dependencies(&[coin(0u128, "inj".to_string())]);
     deps = init(deps);
 
     let msg = ExecuteMsg::AddNativeTokenDecimals {
-        denom: "uluna".to_string(),
+        denom: "inj".to_string(),
         decimals: 6u8,
     };
 
-    let info = mock_info("addr0000", &[]);
+    let info = message_info(&deps.api.addr_make("addr0000"), &[]);
 
     assert_eq!(
         execute(deps.as_mut(), mock_env(), info, msg),
@@ -776,16 +830,16 @@ fn failed_add_allow_native_token_with_zero_factory_balance() {
 
 #[test]
 fn append_add_allow_native_token_with_already_exist_token() {
-    let mut deps = mock_dependencies(&[coin(1u128, "uluna".to_string())]);
+    let mut deps = mock_dependencies(&[coin(1u128, "inj".to_string())]);
     deps = init(deps);
 
     let msg = ExecuteMsg::AddNativeTokenDecimals {
-        denom: "uluna".to_string(),
+        denom: "inj".to_string(),
 
         decimals: 6u8,
     };
 
-    let info = mock_info("addr0000", &[]);
+    let info = message_info(&deps.api.addr_make("addr0000"), &[]);
 
     execute(deps.as_mut(), mock_env(), info.clone(), msg).unwrap();
 
@@ -793,7 +847,7 @@ fn append_add_allow_native_token_with_already_exist_token() {
         deps.as_ref(),
         mock_env(),
         QueryMsg::NativeTokenDecimals {
-            denom: "uluna".to_string(),
+            denom: "inj".to_string(),
         },
     )
     .unwrap();
@@ -801,7 +855,7 @@ fn append_add_allow_native_token_with_already_exist_token() {
     assert_eq!(6u8, res.decimals);
 
     let msg = ExecuteMsg::AddNativeTokenDecimals {
-        denom: "uluna".to_string(),
+        denom: "inj".to_string(),
         decimals: 7u8,
     };
 
@@ -811,7 +865,7 @@ fn append_add_allow_native_token_with_already_exist_token() {
         deps.as_ref(),
         mock_env(),
         QueryMsg::NativeTokenDecimals {
-            denom: "uluna".to_string(),
+            denom: "inj".to_string(),
         },
     )
     .unwrap();
@@ -821,7 +875,7 @@ fn append_add_allow_native_token_with_already_exist_token() {
 
 #[test]
 fn normal_migrate_pair() {
-    let mut deps = mock_dependencies(&[coin(1u128, "uluna".to_string())]);
+    let mut deps = mock_dependencies(&[coin(1u128, "inj".to_string())]);
     deps = init(deps);
 
     let msg = ExecuteMsg::MigratePair {
@@ -829,7 +883,7 @@ fn normal_migrate_pair() {
         contract: "contract0000".to_string(),
     };
 
-    let info = mock_info("addr0000", &[]);
+    let info = message_info(&deps.api.addr_make("addr0000"), &[]);
 
     assert_eq!(
         execute(deps.as_mut(), mock_env(), info, msg).unwrap(),
@@ -843,7 +897,7 @@ fn normal_migrate_pair() {
 
 #[test]
 fn normal_migrate_pair_with_none_code_id_will_config_code_id() {
-    let mut deps = mock_dependencies(&[coin(1u128, "uluna".to_string())]);
+    let mut deps = mock_dependencies(&[coin(1u128, "inj".to_string())]);
     deps = init(deps);
 
     let msg = ExecuteMsg::MigratePair {
@@ -851,7 +905,7 @@ fn normal_migrate_pair_with_none_code_id_will_config_code_id() {
         contract: "contract0000".to_string(),
     };
 
-    let info = mock_info("addr0000", &[]);
+    let info = message_info(&deps.api.addr_make("addr0000"), &[]);
 
     assert_eq!(
         execute(deps.as_mut(), mock_env(), info, msg).unwrap(),
@@ -865,7 +919,7 @@ fn normal_migrate_pair_with_none_code_id_will_config_code_id() {
 
 #[test]
 fn failed_migrate_pair_with_no_admin() {
-    let mut deps = mock_dependencies(&[coin(1u128, "uluna".to_string())]);
+    let mut deps = mock_dependencies(&[coin(1u128, "inj".to_string())]);
     deps = init(deps);
 
     let msg = ExecuteMsg::MigratePair {
@@ -873,7 +927,7 @@ fn failed_migrate_pair_with_no_admin() {
         contract: "contract0000".to_string(),
     };
 
-    let info = mock_info("noadmin", &[]);
+    let info = message_info(&deps.api.addr_make("noadmin"), &[]);
 
     assert_eq!(
         execute(deps.as_mut(), mock_env(), info, msg),

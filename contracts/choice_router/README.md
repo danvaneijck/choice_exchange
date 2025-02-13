@@ -1,25 +1,16 @@
 # Choice Router <!-- omit in toc -->
 
-The Router Contract contains the logic to facilitate multi-hop swap operations via terraswap.
+The Router Contract contains the logic to facilitate multi-hop swap operations via choice exchange.
 
-**Only Terraswap is supported.**
+## Operations Assertion
 
-phoenix-1 Contract:
-- https://finder.terra.money/mainnet/address/terra13ehuhysn5mqjeaheeuew2gjs785f6k7jm8vfsqg3jhtpkwppcmzqcu7chk
-
-pisco-1 Contract: 
-- https://finder.terra.money/testnet/address/terra1xp6xe6uwqrspumrkazdg90876ns4h78yw03vfxghhcy03yexcrcsdaqvc8
-
-Tx: 
-- Luna => DELIGHT => TNT: https://finder.terra.money/testnet/tx/CCBE3E2C746967A03CAD13B7FCAB4BD823BE54883290F3BEE7A213DC6096A39A
-
-### Operations Assertion
 The contract will check whether the resulting token is swapped into one token.
 
 ### Example
 
 Swap Luna => DELIGHT => TNT
-```
+
+```json
 {
    "execute_swap_operations":{
       "operations":[
@@ -27,7 +18,7 @@ Swap Luna => DELIGHT => TNT
             "terra_swap":{
                "offer_asset_info":{
                   "native_token":{
-                     "denom":"uluna"
+                     "denom":"inj"
                   }
                },
                "ask_asset_info":{

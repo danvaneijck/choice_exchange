@@ -92,7 +92,7 @@ mod allow_native_token {
     #[test]
     fn normal() {
         let mut deps = mock_dependencies(&[]);
-        let denom = "uluna".to_string();
+        let denom = "inj".to_string();
         let decimals = 6u8;
 
         add_allow_native_token(deps.as_mut().storage, denom.to_string(), decimals).unwrap();
@@ -108,7 +108,7 @@ mod allow_native_token {
     #[test]
     fn duplicate_register_will_append() {
         let mut deps = mock_dependencies(&[]);
-        let denom = "uluna".to_string();
+        let denom = "inj".to_string();
 
         add_allow_native_token(deps.as_mut().storage, denom.to_string(), 6u8).unwrap();
 

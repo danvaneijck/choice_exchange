@@ -376,7 +376,7 @@ fn test_invalid_operations() {
     // empty error
     assert!(assert_operations(&[]).is_err());
 
-    // uluna output
+    // inj output
     assert!(assert_operations(&[
         SwapOperation::Choice {
             offer_asset_info: AssetInfo::NativeToken {
@@ -391,7 +391,7 @@ fn test_invalid_operations() {
                 contract_addr: "asset0001".to_string(),
             },
             ask_asset_info: AssetInfo::NativeToken {
-                denom: "uluna".to_string(),
+                denom: "inj".to_string(),
             },
         }
     ])
@@ -412,12 +412,12 @@ fn test_invalid_operations() {
                 contract_addr: "asset0001".to_string(),
             },
             ask_asset_info: AssetInfo::NativeToken {
-                denom: "uluna".to_string(),
+                denom: "inj".to_string(),
             },
         },
         SwapOperation::Choice {
             offer_asset_info: AssetInfo::NativeToken {
-                denom: "uluna".to_string(),
+                denom: "inj".to_string(),
             },
             ask_asset_info: AssetInfo::Token {
                 contract_addr: "asset0002".to_string(),

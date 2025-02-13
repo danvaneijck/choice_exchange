@@ -22,18 +22,21 @@ crate-type = ["cdylib", "rlib"]
 [features]
 # for quicker tests, cargo test --lib
 # for more explicit tests, cargo test --features=backtraces
-backtraces = ["cosmwasm-std/backtraces"]
 library = []
 
 [dependencies]
-cw20 = { version = "0.13.2" } 
-cosmwasm-std = { version = "1.0.0" }
+cw2                  = { version = "2.0.0" }
+cw20                 = { version = "2.0.0" } 
+cw20-base            = { version = "2.0.0" }
+cosmwasm-schema      = { version = "1.5.0" }
+cosmwasm-std         = { version = "2.1.0", features = [ "abort", "cosmwasm_1_2", "cosmwasm_1_3", "cosmwasm_1_4", "cosmwasm_2_0", "iterator", "stargate" ] }
+cosmwasm-storage     = { version = "1.5.2", features = [ "iterator" ] }
+cw-storage-plus      = { version = "2.0.0" }
 choice = { path = "../../packages/choice", default-features = false, version = "2.9.0"}
-cw-storage-plus = { version = "0.13.2"}
+
 integer-sqrt = "0.1.5"
 schemars = "0.8.10"
 serde = { version = "1.0.103", default-features = false, features = ["derive"] }
-cw2 = { version = "0.13.4" } 
 
 [dev-dependencies]
 cosmwasm-storage = { version = "1.0.0" }

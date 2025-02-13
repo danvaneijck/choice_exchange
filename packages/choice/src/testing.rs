@@ -244,7 +244,7 @@ fn test_assert_sent_native_token_balance() {
     let zero_asset = Asset {
         amount: Uint128::zero(),
         info: AssetInfo::NativeToken {
-            denom: "uluna".to_string(),
+            denom: "inj".to_string(),
         },
     };
 
@@ -255,14 +255,14 @@ fn test_assert_sent_native_token_balance() {
 
     // invalid message_info
     let message_info = MessageInfo {
-        funds: vec![coin(123, "uluna")],
+        funds: vec![coin(123, "inj")],
         sender: Addr::unchecked("addr0000"),
     };
 
     let invalid_amount_asset = Asset {
         amount: Uint128::from(1u8),
         info: AssetInfo::NativeToken {
-            denom: "uluna".to_string(),
+            denom: "inj".to_string(),
         },
     };
 
@@ -294,7 +294,7 @@ fn test_asset_to_raw() {
     let native_asset = Asset {
         amount: Uint128::from(1u128),
         info: AssetInfo::NativeToken {
-            denom: "uluna".to_string(),
+            denom: "inj".to_string(),
         },
     };
 
@@ -305,7 +305,7 @@ fn test_asset_to_raw() {
         AssetRaw {
             amount: Uint128::from(1u128),
             info: AssetInfoRaw::NativeToken {
-                denom: "uluna".to_string()
+                denom: "inj".to_string()
             }
         }
     );
@@ -343,11 +343,11 @@ fn test_asset_to_raw() {
 #[test]
 fn test_asset_info_raw_equal() {
     let native_asset_info_raw = AssetInfoRaw::NativeToken {
-        denom: "uluna".to_string(),
+        denom: "inj".to_string(),
     };
 
     assert!(native_asset_info_raw.equal(&AssetInfoRaw::NativeToken {
-        denom: "uluna".to_string()
+        denom: "inj".to_string()
     }));
 
     assert!(!native_asset_info_raw.equal(&AssetInfoRaw::NativeToken {
@@ -371,7 +371,7 @@ fn test_asset_info_raw_equal() {
     }));
 
     assert!(!token_asset_info_raw.equal(&AssetInfoRaw::NativeToken {
-        denom: "uluna".to_string()
+        denom: "inj".to_string()
     }));
 }
 
@@ -415,6 +415,6 @@ fn query_choice_pair_contract() {
     )
     .unwrap();
 
-    assert_eq!(pair_info.contract_addr, Addr::unchecked("pair0000"),);
-    assert_eq!(pair_info.liquidity_token, Addr::unchecked("liquidity0000"),);
+    assert_eq!(&deps.api.addr_make(&pair_info.contract_addr), Addr::unchecked("pair0000"),);
+    assert_eq!(&deps.api.addr_make(&pair_info.liquidity_token), Addr::unchecked("liquidity0000"),);
 }

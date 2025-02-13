@@ -120,6 +120,7 @@ impl Querier for WasmMockQuerier {
 
 impl WasmMockQuerier {
     pub fn handle_query(&self, request: &QueryRequest<Empty>) -> QuerierResult {
+        let deps = mock_dependencies(&[]);
         match &request {
             QueryRequest::Wasm(WasmQuery::Smart { contract_addr, msg }) => match from_json(msg) {
                 Ok(FactoryQueryMsg::Pair { asset_infos }) => {
@@ -158,21 +159,28 @@ impl WasmMockQuerier {
                 }
                 _ => match from_json(msg) {
                     Ok(PairQueryMsg::Pair {}) => {
-                        SystemResult::Ok(ContractResult::from(to_json_binary(&PairInfo {
-                            asset_infos: [
-                                AssetInfo::NativeToken {
-                                    denom: "uluna".to_string(),
-                                },
-                                AssetInfo::NativeToken {
-                                    denom: "uluna".to_string(),
-                                },
-                            ],
-                            asset_decimals: [6u8, 6u8],
-                            contract_addr: "pair0000".to_string(),
-                            liquidity_token: "liquidity0000".to_string(),
-                            burn_address: "burnaddr0000".to_string(), // New field
-                            fee_wallet_address: "feeaddr0000".to_string(), // New field
-                        })))
+                        let pair_addr = deps.api.addr_make("pair0000").to_string();
+                        let liquidity_token = deps.api.addr_make("liquidity0000").to_string();
+                        let burn_address = deps.api.addr_make("burnaddr0000").to_string();
+                        let fee_wallet_address = deps.api.addr_make("feeaddr0000").to_string();
+                        
+                        SystemResult::Ok(ContractResult::from(
+                            to_json_binary(&PairInfo {
+                                asset_infos: [
+                                    AssetInfo::NativeToken {
+                                        denom: "inj".to_string(),
+                                    },
+                                    AssetInfo::NativeToken {
+                                        denom: "inj".to_string(),
+                                    },
+                                ],
+                                asset_decimals: [6u8, 6u8],
+                                contract_addr: pair_addr,
+                                liquidity_token,
+                                burn_address,
+                                fee_wallet_address,
+                            })
+                        ))
                     }
                     Ok(PairQueryMsg::Simulation { offer_asset }) => {
                         SystemResult::Ok(ContractResult::from(to_json_binary(&SimulationResponse {
@@ -286,7 +294,7 @@ impl WasmMockQuerier {
 
     pub fn with_balance(&mut self, balances: &[(&String, Vec<Coin>)]) {
         for (addr, balance) in balances {
-            self.base.update_balance(addr.to_string(), balance.clone());
+            self.base.bank.update_balance(addr.to_string(), balance.clone());
         }
     }
 }
@@ -304,7 +312,7 @@ mod mock_exception {
             deps.querier.raw_query(&[]),
             SystemResult::Err(SystemError::InvalidRequest {
                 error: "Parsing query request: Error parsing into type cosmwasm_std::query::QueryRequest<cosmwasm_std::results::empty::Empty>: EOF while parsing a JSON value.".to_string(),
-                request: Binary(vec![])
+                request: Binary::new(vec![])
             })
         );
     }
@@ -316,7 +324,7 @@ mod mock_exception {
         let msg = to_json_binary(&FactoryQueryMsg::Pair {
             asset_infos: [
                 AssetInfo::NativeToken {
-                    denom: "uluna".to_string(),
+                    denom: "inj".to_string(),
                 },
                 AssetInfo::NativeToken {
                     denom: "ulunc".to_string(),
