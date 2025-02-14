@@ -8,7 +8,7 @@ use cosmwasm_std::{
     StdError, StdResult, SubMsg, Uint128, WasmMsg, CustomQuery
 };
 use cw20::Cw20ExecuteMsg;
-use injective_cosmwasm::{InjectiveMsgWrapper, InjectiveRoute, InjectiveMsg};
+use injective_cosmwasm::InjectiveMsgWrapper;
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
 pub struct Asset {

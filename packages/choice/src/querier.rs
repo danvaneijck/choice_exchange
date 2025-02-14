@@ -7,7 +7,7 @@ use injective_cosmwasm::tokenfactory::response::TokenFactoryDenomSupplyResponse;
 use injective_cosmwasm::query::InjectiveQueryWrapper;
 
 use cosmwasm_std::{
-    to_json_binary, Addr, AllBalanceResponse, BalanceResponse, BankQuery, Coin, CustomQuery, DepsMut, QuerierWrapper, QueryRequest, StdResult, Uint128, WasmQuery
+    to_json_binary, Addr, AllBalanceResponse, BalanceResponse, BankQuery, Coin, CustomQuery, QuerierWrapper, QueryRequest, StdResult, Uint128, WasmQuery
 };
 
 use cw20::{BalanceResponse as Cw20BalanceResponse, Cw20QueryMsg, TokenInfoResponse};
@@ -63,10 +63,10 @@ pub fn query_token_info(
 }
 
 pub fn query_token_factory_denom_total_supply(
-    deps: DepsMut<InjectiveQueryWrapper>,
+    querier: &QuerierWrapper<InjectiveQueryWrapper>,
     denom: String,
 ) -> StdResult<Uint128> {
-    let querier: InjectiveQuerier<'_> = InjectiveQuerier::new(&deps.querier);
+    let querier: InjectiveQuerier<'_> = InjectiveQuerier::new(&querier);
     let query_msg: TokenFactoryDenomSupplyResponse = querier.query_token_factory_denom_total_supply(&denom).unwrap();
     let total_share: Uint128 = query_msg.total_supply;
     Ok(total_share)
