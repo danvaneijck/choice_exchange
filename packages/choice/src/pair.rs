@@ -49,10 +49,10 @@ pub enum Cw20HookMsg {
         to: Option<String>,
         deadline: Option<u64>,
     },
-    WithdrawLiquidity {
-        min_assets: Option<[Asset; 2]>,
-        deadline: Option<u64>,
-    },
+    // WithdrawLiquidity {
+    //     min_assets: Option<[Asset; 2]>,
+    //     deadline: Option<u64>,
+    // },
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]

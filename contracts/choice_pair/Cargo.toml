@@ -44,6 +44,8 @@ serde_json           = { version = "1.0.111" }
 serde_repr           = { version = "0.1.17" }
 serde_test           = { version = "1.0.176" }
 
+hex                  = { version = "0.4.3" }
+
 thiserror            = { version = "1.0.56" }
 protobuf             = { version = "2", features = ["with-bytes"] }
 

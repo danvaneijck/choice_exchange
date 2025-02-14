@@ -5,9 +5,10 @@ use std::fmt;
 use crate::querier::{query_balance, query_native_decimals, query_token_balance, query_token_info};
 use cosmwasm_std::{
     to_json_binary, Addr, Api, BankMsg, CanonicalAddr, Coin, CosmosMsg, MessageInfo, QuerierWrapper,
-    StdError, StdResult, SubMsg, Uint128, WasmMsg,
+    StdError, StdResult, SubMsg, Uint128, WasmMsg, CustomQuery
 };
 use cw20::Cw20ExecuteMsg;
+use injective_cosmwasm::{InjectiveMsgWrapper, InjectiveRoute, InjectiveMsg};
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
 pub struct Asset {
@@ -26,7 +27,7 @@ impl Asset {
         self.info.is_native_token()
     }
 
-    pub fn into_msg(self, recipient: Addr) -> StdResult<CosmosMsg> {
+    pub fn into_msg(self, recipient: Addr) -> StdResult<CosmosMsg<InjectiveMsgWrapper>> {
         let amount = self.amount;
 
         match &self.info {
@@ -48,7 +49,7 @@ impl Asset {
         }
     }
 
-    pub fn into_submsg(self, recipient: Addr) -> StdResult<SubMsg> {
+    pub fn into_submsg(self, recipient: Addr) -> StdResult<SubMsg<InjectiveMsgWrapper>> {
         Ok(SubMsg::new(self.into_msg(recipient)?))
     }
 
@@ -126,9 +127,9 @@ impl AssetInfo {
             AssetInfo::Token { .. } => false,
         }
     }
-    pub fn query_pool(
+    pub fn query_pool<Q: CustomQuery>(
         &self,
-        querier: &QuerierWrapper,
+        querier: &QuerierWrapper<Q>,
         api: &dyn Api,
         pool_addr: Addr,
     ) -> StdResult<Uint128> {
@@ -260,7 +261,7 @@ pub struct PairInfo {
 pub struct PairInfoRaw {
     pub asset_infos: [AssetInfoRaw; 2],
     pub contract_addr: CanonicalAddr,
-    pub liquidity_token: CanonicalAddr,
+    pub liquidity_token: String,
     pub asset_decimals: [u8; 2],
     pub burn_address: CanonicalAddr, // New field
     pub fee_wallet_address: CanonicalAddr, // New field
@@ -269,7 +270,7 @@ pub struct PairInfoRaw {
 impl PairInfoRaw {
     pub fn to_normal(&self, api: &dyn Api) -> StdResult<PairInfo> {
         Ok(PairInfo {
-            liquidity_token: api.addr_humanize(&self.liquidity_token)?.to_string(),
+            liquidity_token: self.liquidity_token.to_string(),
             contract_addr: api.addr_humanize(&self.contract_addr)?.to_string(),
             asset_infos: [
                 self.asset_infos[0].to_normal(api)?,
@@ -281,9 +282,9 @@ impl PairInfoRaw {
         })
     }
 
-    pub fn query_pools(
+    pub fn query_pools<Q: CustomQuery>(
         &self,
-        querier: &QuerierWrapper,
+        querier: &QuerierWrapper<Q>,
         api: &dyn Api,
         contract_addr: Addr,
     ) -> StdResult<[Asset; 2]> {

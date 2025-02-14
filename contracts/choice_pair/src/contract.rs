@@ -1,19 +1,17 @@
 use crate::error::ContractError;
-use crate::response::MsgInstantiateContractResponse;
 use crate::state::PAIR_INFO;
 
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
 
 use cosmwasm_std::{
-    coins, from_json, to_json_binary, Addr, BankMsg, Binary, CanonicalAddr, CosmosMsg, Decimal,
-    Decimal256, Deps, DepsMut, Env, MessageInfo, Reply, ReplyOn, Response, StdError, StdResult,
+    coins, from_json, to_json_binary, Addr, BankMsg, Binary, CosmosMsg, Decimal,
+    Decimal256, DepsMut, Env, MessageInfo, ReplyOn, Response, StdResult,
     SubMsg, Uint128, Uint256, WasmMsg, Coin
 };
 
 use cw2::set_contract_version;
-use cw20::{Cw20ExecuteMsg, Cw20ReceiveMsg, MinterResponse};
-use protobuf::Message;
+use cw20::{Cw20ExecuteMsg, Cw20ReceiveMsg};
 use std::cmp::Ordering;
 use std::convert::TryInto;
 use std::ops::Mul;
@@ -23,15 +21,16 @@ use choice::pair::{
     Cw20HookMsg, ExecuteMsg, InstantiateMsg, MigrateMsg, PoolResponse, QueryMsg,
     ReverseSimulationResponse, SimulationResponse,
 };
-use choice::querier::query_token_info;
-use choice::token::InstantiateMsg as TokenInstantiateMsg;
+use choice::querier::query_token_factory_denom_total_supply;
 use choice::util::migrate_version;
 
 use serde::{Deserialize, Serialize};
 
-use injective_cosmwasm::{InjectiveMsgWrapper, InjectiveRoute, InjectiveMsg};
-use injective_cosmwasm::msg::{create_new_denom_msg, create_set_token_metadata_msg};
+use injective_cosmwasm::InjectiveMsgWrapper;
+use injective_cosmwasm::msg::{create_new_denom_msg, create_set_token_metadata_msg, create_mint_tokens_msg, create_burn_tokens_msg};
+use hex;
 
+use injective_cosmwasm::query::InjectiveQueryWrapper;
 
 // version info for migration info
 const CONTRACT_NAME: &str = "crates.io:choice-pair";
@@ -46,32 +45,31 @@ const MINIMUM_LIQUIDITY_AMOUNT: u128 = 1_000;
 
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn instantiate(
-    deps: DepsMut,
+    deps: DepsMut<InjectiveQueryWrapper>,
     env: Env,
     _info: MessageInfo,
     msg: InstantiateMsg,
 ) -> StdResult<Response<CosmosMsg<InjectiveMsgWrapper>>>  {
     set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
+    
+    let subdenom = "lp".to_string();
+    let lp_denom = format!("factory/{}/{}", env.contract.address, subdenom);
 
-    let pair_info: &PairInfoRaw = &PairInfoRaw {
+    let pair_info = &PairInfoRaw {
         contract_addr: deps.api.addr_canonicalize(env.contract.address.as_str())?,
-        liquidity_token: CanonicalAddr::from(vec![]),
+        liquidity_token: lp_denom.clone(),
         asset_infos: [
             msg.asset_infos[0].to_raw(deps.api)?,
             msg.asset_infos[1].to_raw(deps.api)?,
         ],
         asset_decimals: msg.asset_decimals,
-        burn_address: deps.api.addr_canonicalize(&msg.burn_address)?, // Store burn address
-        fee_wallet_address: deps.api.addr_canonicalize(&msg.fee_wallet_address)?, // Store fee wallet
+        burn_address: deps.api.addr_canonicalize(&msg.burn_address)?,
+        fee_wallet_address: deps.api.addr_canonicalize(&msg.fee_wallet_address)?,
     };
 
     PAIR_INFO.save(deps.storage, pair_info)?;
 
-    let subdenom = "lp".to_string();
-
     let create_msg = create_new_denom_msg(env.contract.address.to_string(), subdenom.clone());
-
-    let lp_denom = format!("factory/{}/{}", env.contract.address, subdenom);
 
     let metadata_msg = create_set_token_metadata_msg(
         lp_denom.clone(),
@@ -104,11 +102,11 @@ pub fn instantiate(
 
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn execute(
-    deps: DepsMut,
+    deps: DepsMut<InjectiveQueryWrapper>,
     env: Env,
     info: MessageInfo,
     msg: ExecuteMsg,
-) -> Result<Response, ContractError> {
+) -> Result<Response<InjectiveMsgWrapper>, ContractError> {
     match msg {
         ExecuteMsg::Receive(msg) => receive_cw20(deps, env, info, msg),
         ExecuteMsg::ProvideLiquidity {
@@ -158,11 +156,11 @@ pub fn execute(
 }
 
 pub fn receive_cw20(
-    deps: DepsMut,
+    deps: DepsMut<InjectiveQueryWrapper>,
     env: Env,
     info: MessageInfo,
     cw20_msg: Cw20ReceiveMsg,
-) -> Result<Response, ContractError> {
+) -> Result<Response<InjectiveMsgWrapper>, ContractError> {
     let contract_addr = info.sender.clone();
 
     match from_json(&cw20_msg.msg) {
@@ -213,72 +211,99 @@ pub fn receive_cw20(
                 deadline,
             )
         }
-        Ok(Cw20HookMsg::WithdrawLiquidity {
-            min_assets,
-            deadline,
-        }) => {
-            let config: PairInfoRaw = PAIR_INFO.load(deps.storage)?;
-            if deps.api.addr_canonicalize(info.sender.as_str())? != config.liquidity_token {
-                return Err(ContractError::Unauthorized {});
-            }
+        // Ok(Cw20HookMsg::WithdrawLiquidity {
+        //     min_assets,
+        //     deadline,
+        // }) => {
+        //     let config: PairInfoRaw = PAIR_INFO.load(deps.storage)?;
+        //     if deps.api.addr_canonicalize(info.sender.as_str())? != config.liquidity_token {
+        //         return Err(ContractError::Unauthorized {});
+        //     }
 
-            let sender_addr = deps.api.addr_validate(cw20_msg.sender.as_str())?;
-            withdraw_liquidity(
-                deps,
-                env,
-                info,
-                sender_addr,
-                cw20_msg.amount,
-                min_assets,
-                deadline,
-            )
-        }
+        //     let sender_addr = deps.api.addr_validate(cw20_msg.sender.as_str())?;
+        //     withdraw_liquidity(
+        //         deps,
+        //         env,
+        //         info,
+        //         sender_addr,
+        //         cw20_msg.amount,
+        //         min_assets,
+        //         deadline,
+        //     )
+        // }
         Err(err) => Err(ContractError::Std(err)),
     }
 }
 
 /// This just stores the result for future query
-#[cfg_attr(not(feature = "library"), entry_point)]
-pub fn reply(deps: DepsMut, _env: Env, msg: Reply) -> StdResult<Response> {
-    if msg.id != INSTANTIATE_REPLY_ID {
-        return Err(StdError::generic_err("invalid reply msg"));
-    }
+// #[cfg_attr(not(feature = "library"), entry_point)]
+// pub fn reply(deps: DepsMut, _env: Env, msg: Reply) -> StdResult<Response> {
+//     if msg.id != INSTANTIATE_REPLY_ID {
+//         return Err(StdError::generic_err("invalid reply msg"));
+//     }
 
-    let data = msg.result.unwrap().data.unwrap();
-    let res: MsgInstantiateContractResponse =
-        Message::parse_from_bytes(data.as_slice()).map_err(|_| {
-            StdError::parse_err("MsgInstantiateContractResponse", "failed to parse data")
-        })?;
-    let liquidity_token = res.get_address();
+//     let sub_msg_response = match msg.result {
+//         SubMsgResult::Ok(resp) => resp,
+//         SubMsgResult::Err(err) => {
+//             return Err(StdError::generic_err(format!("Submessage error: {}", err)))
+//         }
+//     };
 
-    let api = deps.api;
-    PAIR_INFO.update(deps.storage, |mut meta| -> StdResult<_> {
-        meta.liquidity_token = api.addr_canonicalize(liquidity_token)?;
-        Ok(meta)
-    })?;
+//     // Use msg_responses if available, otherwise fall back to data
+//     let data_bytes: Binary = if !sub_msg_response.msg_responses.is_empty() {
+//         sub_msg_response.msg_responses[0].value.clone()
+//     } else if let Some(data) = sub_msg_response.data {
+//         data
+//     } else {
+//         return Err(StdError::generic_err("no data or msg_responses found in submessage response"));
+//     };
 
-    Ok(Response::new().add_attribute("liquidity_token_addr", liquidity_token))
-}
+//     println!("reply Raw data_bytes: {:?}", data_bytes);
+//     println!("reply data_bytes (hex): {}", hex::encode(&data_bytes));
+
+//     let res: MsgInstantiateContractResponse =
+//         Message::parse_from_bytes(data_bytes.as_slice()).map_err(|_| {
+//             StdError::parse_err("MsgInstantiateContractResponse", "failed to parse data")
+//         })?;
+
+//     let liquidity_token = res.get_address();
+
+//     let api = deps.api;
+//     PAIR_INFO.update(deps.storage, |mut meta| -> StdResult<_> {
+//         meta.liquidity_token = api.addr_canonicalize(liquidity_token)?;
+//         Ok(meta)
+//     })?;
+
+//     Ok(Response::new().add_attribute("liquidity_token_addr", liquidity_token))
+// }
 
 /// CONTRACT - should approve contract to use the amount of token
 pub fn provide_liquidity(
-    deps: DepsMut,
+    deps: DepsMut<InjectiveQueryWrapper>,
     env: Env,
     info: MessageInfo,
     assets: [Asset; 2],
     receiver: Option<String>,
     deadline: Option<u64>,
     slippage_tolerance: Option<Decimal>,
-) -> Result<Response, ContractError> {
+) -> Result<Response<InjectiveMsgWrapper>, ContractError> {
     assert_deadline(env.block.time.seconds(), deadline)?;
 
     for asset in assets.iter() {
         asset.assert_sent_native_token_balance(&info)?;
     }
 
+    println!("assets: {:?}", assets);
+
+    println!("env contract: {:?}", env.contract.address);
+
     let pair_info: PairInfoRaw = PAIR_INFO.load(deps.storage)?;
     let mut pools: [Asset; 2] =
         pair_info.query_pools(&deps.querier, deps.api, env.contract.address.clone())?;
+
+    println!("pools: {:?}", pools);
+
+
     let deposits: [Uint128; 2] = [
         assets
             .iter()
@@ -292,7 +317,10 @@ pub fn provide_liquidity(
             .expect("Wrong asset info is given"),
     ];
 
-    let mut messages: Vec<CosmosMsg> = vec![];
+    println!("deposits: {:?}", deposits);
+
+
+    let mut messages: Vec<CosmosMsg<InjectiveMsgWrapper>> = vec![];
     for (i, pool) in pools.iter_mut().enumerate() {
         if pool.is_native_token() {
             // If the asset is native token, balance is already increased
@@ -301,8 +329,17 @@ pub fn provide_liquidity(
         }
     }
 
-    let liquidity_token = deps.api.addr_humanize(&pair_info.liquidity_token)?;
-    let total_share = query_token_info(&deps.querier, liquidity_token)?.total_supply;
+    println!("here");
+
+
+    let total_share: Uint128 = query_token_factory_denom_total_supply(
+        deps,
+        pair_info.liquidity_token.clone(),
+    ).unwrap();
+
+    println!("total_share: {:?}", total_share);
+
+
     let share: Uint128 = if total_share.is_zero() {
         // Initial share = collateral amount
         let deposit0: Uint256 = deposits[0].into();
@@ -316,17 +353,16 @@ pub fn provide_liquidity(
 
         // the initial liquidity is deducted by MINIMUM_LIQUIDITY_AMOUNT
         // to protect a pair from malicious provision blocking
-        messages.push(CosmosMsg::Wasm(WasmMsg::Execute {
-            contract_addr: deps
-                .api
-                .addr_humanize(&pair_info.liquidity_token)?
-                .to_string(),
-            msg: to_json_binary(&Cw20ExecuteMsg::Mint {
-                recipient: env.contract.address.to_string(),
+        messages.push(create_mint_tokens_msg(
+            env.contract.address.clone(), 
+            Coin {
+                denom: pair_info.liquidity_token.clone(),
                 amount: MINIMUM_LIQUIDITY_AMOUNT.into(),
-            })?,
-            funds: vec![],
-        }));
+            },
+            env.contract.address.to_string(), 
+        ));
+
+        println!("share: {:?}", share);
 
         share
             .checked_sub(MINIMUM_LIQUIDITY_AMOUNT.into())
@@ -400,17 +436,14 @@ pub fn provide_liquidity(
 
     // mint LP token to sender
     let receiver = receiver.unwrap_or_else(|| info.sender.to_string());
-    messages.push(CosmosMsg::Wasm(WasmMsg::Execute {
-        contract_addr: deps
-            .api
-            .addr_humanize(&pair_info.liquidity_token)?
-            .to_string(),
-        msg: to_json_binary(&Cw20ExecuteMsg::Mint {
-            recipient: receiver.to_string(),
-            amount: share,
-        })?,
-        funds: vec![],
-    }));
+    messages.push(create_mint_tokens_msg(
+    env.contract.address.clone(), // use contract as the minter/sender
+    Coin {
+        denom: pair_info.liquidity_token.clone(), // the LP denom stored as string
+        amount: share,
+    },
+    receiver.to_string(), // mint to the receiver
+));
 
     Ok(Response::new().add_messages(messages).add_attributes(vec![
         ("action", "provide_liquidity"),
@@ -426,21 +459,26 @@ pub fn provide_liquidity(
 }
 
 pub fn withdraw_liquidity(
-    deps: DepsMut,
+    deps: DepsMut<InjectiveQueryWrapper>,
     env: Env,
     _info: MessageInfo,
     sender: Addr,
     amount: Uint128,
     min_assets: Option<[Asset; 2]>,
     deadline: Option<u64>,
-) -> Result<Response, ContractError> {
+) -> Result<Response<InjectiveMsgWrapper>, ContractError> {
     assert_deadline(env.block.time.seconds(), deadline)?;
 
     let pair_info: PairInfoRaw = PAIR_INFO.load(deps.storage)?;
-    let liquidity_addr: Addr = deps.api.addr_humanize(&pair_info.liquidity_token)?;
 
-    let pools: [Asset; 2] = pair_info.query_pools(&deps.querier, deps.api, env.contract.address)?;
-    let total_share: Uint128 = query_token_info(&deps.querier, liquidity_addr)?.total_supply;
+    let contract_addr = env.contract.address.clone();
+
+    let pools: [Asset; 2] = pair_info.query_pools(&deps.querier, deps.api, contract_addr.clone())?;
+
+    let total_share: Uint128 = query_token_factory_denom_total_supply(
+        deps,
+        pair_info.liquidity_token.clone(),
+    ).unwrap();
 
     let share_ratio: Decimal = Decimal::from_ratio(amount, total_share);
     let refund_assets: Vec<Asset> = pools
@@ -459,14 +497,13 @@ pub fn withdraw_liquidity(
             refund_assets[0].clone().into_msg(sender.clone())?,
             refund_assets[1].clone().into_msg(sender.clone())?,
             // burn liquidity token
-            CosmosMsg::Wasm(WasmMsg::Execute {
-                contract_addr: deps
-                    .api
-                    .addr_humanize(&pair_info.liquidity_token)?
-                    .to_string(),
-                msg: to_json_binary(&Cw20ExecuteMsg::Burn { amount })?,
-                funds: vec![],
-            }),
+            create_burn_tokens_msg(
+                contract_addr.clone(), // sender: contract address as the minter/burner
+                Coin {
+                    denom: pair_info.liquidity_token.clone(), // our LP denom string
+                    amount, // amount to burn
+                },
+            ),
         ])
         .add_attributes(vec![
             ("action", "withdraw_liquidity"),
@@ -488,7 +525,7 @@ enum BurnManagerMsg {
 // CONTRACT - a user must do token approval
 #[allow(clippy::too_many_arguments)]
 pub fn swap(
-    deps: DepsMut,
+    deps: DepsMut<InjectiveQueryWrapper>,
     env: Env,
     info: MessageInfo,
     sender: Addr,
@@ -497,7 +534,7 @@ pub fn swap(
     max_spread: Option<Decimal>,
     to: Option<Addr>,
     deadline: Option<u64>,
-) -> Result<Response, ContractError> {
+) -> Result<Response<InjectiveMsgWrapper>, ContractError> {
     assert_deadline(env.block.time.seconds(), deadline)?;
 
     offer_asset.assert_sent_native_token_balance(&info)?;
@@ -562,7 +599,7 @@ pub fn swap(
     let fee_wallet_amount = total_fee.multiply_ratio(1u128, 6u128); // 0.05% (1/6 of the total fee)
     let burn_amount = total_fee.multiply_ratio(1u128, 6u128); // 0.05% (1/6 of the total fee)
 
-    let mut messages: Vec<CosmosMsg> = vec![];
+    let mut messages: Vec<CosmosMsg<InjectiveMsgWrapper>> = vec![];
     if !return_amount.is_zero() {
         messages.push(return_asset.into_msg(receiver.clone())?);
     }
@@ -632,7 +669,7 @@ pub fn swap(
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
-pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> Result<Binary, ContractError> {
+pub fn query(deps: DepsMut<InjectiveQueryWrapper>, _env: Env, msg: QueryMsg) -> Result<Binary, ContractError> {
     match msg {
         QueryMsg::Pair {} => Ok(to_json_binary(&query_pair_info(deps)?)?),
         QueryMsg::Pool {} => Ok(to_json_binary(&query_pool(deps)?)?),
@@ -645,22 +682,22 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> Result<Binary, ContractErr
     }
 }
 
-pub fn query_pair_info(deps: Deps) -> Result<PairInfo, ContractError> {
+pub fn query_pair_info(deps: DepsMut<InjectiveQueryWrapper>) -> Result<PairInfo, ContractError> {
     let pair_info: PairInfoRaw = PAIR_INFO.load(deps.storage)?;
     let pair_info = pair_info.to_normal(deps.api)?;
 
     Ok(pair_info)
 }
 
-pub fn query_pool(deps: Deps) -> Result<PoolResponse, ContractError> {
+pub fn query_pool(deps: DepsMut<InjectiveQueryWrapper>) -> Result<PoolResponse, ContractError> {
     let pair_info: PairInfoRaw = PAIR_INFO.load(deps.storage)?;
     let contract_addr = deps.api.addr_humanize(&pair_info.contract_addr)?;
     let assets: [Asset; 2] = pair_info.query_pools(&deps.querier, deps.api, contract_addr)?;
-    let total_share: Uint128 = query_token_info(
-        &deps.querier,
-        deps.api.addr_humanize(&pair_info.liquidity_token)?,
-    )?
-    .total_supply;
+    
+    let total_share: Uint128 = query_token_factory_denom_total_supply(
+        deps,
+        pair_info.liquidity_token.clone(),
+    ).unwrap();
 
     let resp = PoolResponse {
         assets,
@@ -671,7 +708,7 @@ pub fn query_pool(deps: Deps) -> Result<PoolResponse, ContractError> {
 }
 
 pub fn query_simulation(
-    deps: Deps,
+    deps: DepsMut<InjectiveQueryWrapper>,
     offer_asset: Asset,
 ) -> Result<SimulationResponse, ContractError> {
     let pair_info: PairInfoRaw = PAIR_INFO.load(deps.storage)?;
@@ -702,7 +739,7 @@ pub fn query_simulation(
 }
 
 pub fn query_reverse_simulation(
-    deps: Deps,
+    deps: DepsMut<InjectiveQueryWrapper>,
     ask_asset: Asset,
 ) -> Result<ReverseSimulationResponse, ContractError> {
     let pair_info: PairInfoRaw = PAIR_INFO.load(deps.storage)?;

@@ -2,15 +2,18 @@ use crate::asset::{Asset, AssetInfo, PairInfo};
 use crate::factory::{NativeTokenDecimalsResponse, QueryMsg as FactoryQueryMsg};
 use crate::pair::{QueryMsg as PairQueryMsg, ReverseSimulationResponse, SimulationResponse};
 
+use injective_cosmwasm::querier::InjectiveQuerier;
+use injective_cosmwasm::tokenfactory::response::TokenFactoryDenomSupplyResponse;
+use injective_cosmwasm::query::InjectiveQueryWrapper;
+
 use cosmwasm_std::{
-    to_json_binary, Addr, AllBalanceResponse, BalanceResponse, BankQuery, Coin, QuerierWrapper,
-    QueryRequest, StdResult, Uint128, WasmQuery,
+    to_json_binary, Addr, AllBalanceResponse, BalanceResponse, BankQuery, Coin, CustomQuery, DepsMut, QuerierWrapper, QueryRequest, StdResult, Uint128, WasmQuery
 };
 
 use cw20::{BalanceResponse as Cw20BalanceResponse, Cw20QueryMsg, TokenInfoResponse};
 
-pub fn query_balance(
-    querier: &QuerierWrapper,
+pub fn query_balance<Q: CustomQuery>(
+    querier: &QuerierWrapper<Q>,
     account_addr: Addr,
     denom: String,
 ) -> StdResult<Uint128> {
@@ -31,8 +34,8 @@ pub fn query_all_balances(querier: &QuerierWrapper, account_addr: Addr) -> StdRe
     Ok(all_balances.amount)
 }
 
-pub fn query_token_balance(
-    querier: &QuerierWrapper,
+pub fn query_token_balance<Q: CustomQuery>(
+    querier: &QuerierWrapper<Q>,
     contract_addr: Addr,
     account_addr: Addr,
 ) -> StdResult<Uint128> {
@@ -57,6 +60,16 @@ pub fn query_token_info(
     }))?;
 
     Ok(token_info)
+}
+
+pub fn query_token_factory_denom_total_supply(
+    deps: DepsMut<InjectiveQueryWrapper>,
+    denom: String,
+) -> StdResult<Uint128> {
+    let querier: InjectiveQuerier<'_> = InjectiveQuerier::new(&deps.querier);
+    let query_msg: TokenFactoryDenomSupplyResponse = querier.query_token_factory_denom_total_supply(&denom).unwrap();
+    let total_share: Uint128 = query_msg.total_supply;
+    Ok(total_share)
 }
 
 pub fn query_native_decimals(
