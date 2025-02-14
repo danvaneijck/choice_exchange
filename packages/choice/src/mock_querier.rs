@@ -126,12 +126,11 @@ impl Querier for WasmMockQuerier {
 impl WasmMockQuerier {
     pub fn handle_query(&self, request: &QueryRequest<InjectiveQueryWrapper>) -> QuerierResult {
         let deps = mock_dependencies(&[]);
-        println!("request: {:?}", request);
+        // println!("request: {:?}", request);
         match &request {
             QueryRequest::Wasm(WasmQuery::Smart { contract_addr, msg }) => match from_json(msg) {
                 Ok(FactoryQueryMsg::Pair { asset_infos }) => {
                     let key = [asset_infos[0].to_string(), asset_infos[1].to_string()].join("");
-                    println!("key: {:?}", key);
                     let mut sort_key: Vec<char> = key.chars().collect();
                     sort_key.sort_by(|a, b| b.cmp(a));
                     match self

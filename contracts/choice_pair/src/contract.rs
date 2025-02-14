@@ -293,16 +293,12 @@ pub fn provide_liquidity(
         asset.assert_sent_native_token_balance(&info)?;
     }
 
-    println!("assets: {:?}", assets);
-
-    println!("env contract: {:?}", env.contract.address);
-
     let pair_info: PairInfoRaw = PAIR_INFO.load(deps.storage)?;
+
     let mut pools: [Asset; 2] =
         pair_info.query_pools(&deps.querier, deps.api, env.contract.address.clone())?;
 
-    println!("pools: {:?}", pools);
-
+    // println!("pools: {:?}", pools);
 
     let deposits: [Uint128; 2] = [
         assets
@@ -317,8 +313,7 @@ pub fn provide_liquidity(
             .expect("Wrong asset info is given"),
     ];
 
-    println!("deposits: {:?}", deposits);
-
+    // println!("deposits: {:?}", deposits);
 
     let mut messages: Vec<CosmosMsg<InjectiveMsgWrapper>> = vec![];
     for (i, pool) in pools.iter_mut().enumerate() {
@@ -329,16 +324,12 @@ pub fn provide_liquidity(
         }
     }
 
-    println!("here");
-
-
     let total_share: Uint128 = query_token_factory_denom_total_supply(
         deps,
         pair_info.liquidity_token.clone(),
     ).unwrap();
 
-    println!("total_share: {:?}", total_share);
-
+    // println!("total_share: {:?}", total_share);
 
     let share: Uint128 = if total_share.is_zero() {
         // Initial share = collateral amount
@@ -362,7 +353,7 @@ pub fn provide_liquidity(
             env.contract.address.to_string(), 
         ));
 
-        println!("share: {:?}", share);
+        // println!("share: {:?}", share);
 
         share
             .checked_sub(MINIMUM_LIQUIDITY_AMOUNT.into())
@@ -376,6 +367,7 @@ pub fn provide_liquidity(
         // == deposit_0 * total_share / pool_0
         // 2. sqrt(deposit_1 * exchange_rate_1_to_0 * deposit_1) * (total_share / sqrt(pool_1 * pool_1))
         // == deposit_1 * total_share / pool_1
+
         std::cmp::min(
             deposits[0].multiply_ratio(total_share, pools[0].amount),
             deposits[1].multiply_ratio(total_share, pools[1].amount),
