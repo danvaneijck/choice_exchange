@@ -20,6 +20,7 @@ use choice::router::{
     SimulateSwapOperationsResponse, SwapOperation,
 };
 use choice::util::migrate_version;
+use injective_cosmwasm::query::InjectiveQueryWrapper;
 
 // version info for migration info
 const CONTRACT_NAME: &str = "crates.io:choice-router";
@@ -27,7 +28,7 @@ const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
 
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn instantiate(
-    deps: DepsMut,
+    deps: DepsMut<InjectiveQueryWrapper>,
     _env: Env,
     _info: MessageInfo,
     msg: InstantiateMsg,
@@ -45,7 +46,7 @@ pub fn instantiate(
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
-pub fn execute(deps: DepsMut, env: Env, info: MessageInfo, msg: ExecuteMsg) -> StdResult<Response> {
+pub fn execute(deps: DepsMut<InjectiveQueryWrapper>, env: Env, info: MessageInfo, msg: ExecuteMsg) -> StdResult<Response> {
     match msg {
         ExecuteMsg::Receive(msg) => receive_cw20(deps, env, info, msg),
         ExecuteMsg::ExecuteSwapOperations {
@@ -106,7 +107,7 @@ fn optional_addr_validate(api: &dyn Api, addr: Option<String>) -> StdResult<Opti
 }
 
 pub fn receive_cw20(
-    deps: DepsMut,
+    deps: DepsMut<InjectiveQueryWrapper>,
     env: Env,
     _info: MessageInfo,
     cw20_msg: Cw20ReceiveMsg,
@@ -134,7 +135,7 @@ pub fn receive_cw20(
 }
 
 pub fn execute_swap_operations(
-    deps: DepsMut,
+    deps: DepsMut<InjectiveQueryWrapper>,
     env: Env,
     sender: Addr,
     operations: Vec<SwapOperation>,
@@ -194,7 +195,7 @@ pub fn execute_swap_operations(
 }
 
 fn assert_minimum_receive(
-    deps: Deps,
+    deps: Deps<InjectiveQueryWrapper>,
     asset_info: AssetInfo,
     prev_balance: Uint128,
     minium_receive: Uint128,
@@ -214,7 +215,7 @@ fn assert_minimum_receive(
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
-pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
+pub fn query(deps: Deps<InjectiveQueryWrapper>, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
     match msg {
         QueryMsg::Config {} => to_json_binary(&query_config(deps)?),
         QueryMsg::SimulateSwapOperations {
@@ -230,7 +231,7 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
     }
 }
 
-pub fn query_config(deps: Deps) -> StdResult<ConfigResponse> {
+pub fn query_config(deps: Deps<InjectiveQueryWrapper>) -> StdResult<ConfigResponse> {
     let state = CONFIG.load(deps.storage)?;
     let resp = ConfigResponse {
         choice_factory: deps
@@ -243,7 +244,7 @@ pub fn query_config(deps: Deps) -> StdResult<ConfigResponse> {
 }
 
 fn simulate_swap_operations(
-    deps: Deps,
+    deps: Deps<InjectiveQueryWrapper>,
     offer_amount: Uint128,
     operations: Vec<SwapOperation>,
 ) -> StdResult<SimulateSwapOperationsResponse> {
@@ -288,7 +289,7 @@ fn simulate_swap_operations(
 }
 
 fn reverse_simulate_swap_operations(
-    deps: Deps,
+    deps: Deps<InjectiveQueryWrapper>,
     ask_amount: Uint128,
     operations: Vec<SwapOperation>,
 ) -> StdResult<SimulateSwapOperationsResponse> {
@@ -324,7 +325,7 @@ fn reverse_simulate_swap_operations(
 }
 
 fn reverse_simulate_return_amount(
-    deps: Deps,
+    deps: Deps<InjectiveQueryWrapper>,
     factory: Addr,
     ask_amount: Uint128,
     offer_asset_info: AssetInfo,
@@ -429,7 +430,7 @@ fn test_invalid_operations() {
 
 const TARGET_CONTRACT_VERSION: &str = "0.1.0";
 #[cfg_attr(not(feature = "library"), entry_point)]
-pub fn migrate(deps: DepsMut, _env: Env, _msg: MigrateMsg) -> StdResult<Response> {
+pub fn migrate(deps: DepsMut<InjectiveQueryWrapper>, _env: Env, _msg: MigrateMsg) -> StdResult<Response> {
     migrate_version(
         deps,
         TARGET_CONTRACT_VERSION,

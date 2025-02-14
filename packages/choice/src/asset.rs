@@ -9,6 +9,7 @@ use cosmwasm_std::{
 };
 use cw20::Cw20ExecuteMsg;
 use injective_cosmwasm::InjectiveMsgWrapper;
+use injective_cosmwasm::query::InjectiveQueryWrapper;
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
 pub struct Asset {
@@ -164,7 +165,7 @@ impl AssetInfo {
         }
     }
 
-    pub fn query_decimals(&self, account_addr: Addr, querier: &QuerierWrapper) -> StdResult<u8> {
+    pub fn query_decimals(&self, account_addr: Addr, querier: &QuerierWrapper<InjectiveQueryWrapper>) -> StdResult<u8> {
         match self {
             AssetInfo::NativeToken { denom } => {
                 query_native_decimals(querier, account_addr, denom.to_string())

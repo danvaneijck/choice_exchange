@@ -1,11 +1,12 @@
 use crate::contract::{execute, instantiate, query, reply};
 use choice::mock_querier::{mock_dependencies, WasmMockQuerier};
+use injective_cosmwasm::InjectiveQueryWrapper;
 
 use crate::state::{pair_key, TmpPairInfo, TMP_PAIR_INFO, CONFIG, Config};
 
 use cosmwasm_std::testing::{mock_env, message_info, MockApi, MockStorage, MOCK_CONTRACT_ADDR};
 use cosmwasm_std::{
-    attr, coin, coins, from_json, to_json_binary, Addr, Binary, CosmosMsg, OwnedDeps, Reply, ReplyOn,
+    attr, coin, coins, from_json, to_json_binary, Binary, CosmosMsg, OwnedDeps, Reply, ReplyOn,
     Response, StdError, SubMsg, SubMsgResponse, SubMsgResult, Uint128, WasmMsg, Api, MsgResponse
 };
 use cw20::Cw20ExecuteMsg;
@@ -122,8 +123,8 @@ fn update_config() {
 }
 
 fn init(
-    mut deps: OwnedDeps<MockStorage, MockApi, WasmMockQuerier>,
-) -> OwnedDeps<MockStorage, MockApi, WasmMockQuerier> {
+    mut deps: OwnedDeps<MockStorage, MockApi, WasmMockQuerier, InjectiveQueryWrapper>,
+) -> OwnedDeps<MockStorage, MockApi, WasmMockQuerier, InjectiveQueryWrapper> {
     let mock_api = MockApi::default();
 
     let msg = InstantiateMsg {
@@ -501,6 +502,7 @@ fn reply_only_create_pair() {
     let expected_bytes = expected.write_to_bytes().unwrap();
     println!("Expected bytes: {}", hex::encode(expected_bytes.clone()));
 
+    #[allow(deprecated)]
     let reply_msg = Reply {
         id: 1,
         payload: Binary::default(),
@@ -622,7 +624,7 @@ fn reply_create_pair_with_provide() {
     let expected_bytes = expected.write_to_bytes().unwrap();
     println!("Expected bytes: {}", hex::encode(expected_bytes.clone()));
 
-
+    #[allow(deprecated)]
     let reply_msg = Reply {
         id: 1,
         payload: Binary::default(),
@@ -734,6 +736,7 @@ fn reply_create_pair_with_provide() {
 fn failed_reply_with_unknown_id() {
     let mut deps = mock_dependencies(&[]);
 
+    #[allow(deprecated)]
     let res = reply(
         deps.as_mut(),
         mock_env(),

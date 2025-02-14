@@ -1,8 +1,9 @@
 use cosmwasm_std::{DepsMut, StdError, StdResult};
 use cw2::{get_contract_version, set_contract_version};
+use injective_cosmwasm::query::InjectiveQueryWrapper;
 
 pub fn migrate_version(
-    deps: DepsMut,
+    deps: DepsMut<InjectiveQueryWrapper>,
     target_contract_version: &str,
     name: &str,
     version: &str,
