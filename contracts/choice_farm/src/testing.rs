@@ -18,9 +18,9 @@ fn proper_initialization() {
 
     let msg = InstantiateMsg {
         reward_token: AssetInfo::Token {
-            contract_addr: "reward0000".to_string(),
+            contract_addr: deps.api.addr_make("reward0000").to_string(),
         },
-        staking_token: "staking0000".to_string(),
+        staking_token: deps.api.addr_make("staking0000").to_string(),
         distribution_schedule: vec![(100, 200, Uint128::from(1000000u128))],
     };
 
@@ -35,8 +35,8 @@ fn proper_initialization() {
     assert_eq!(
         config,
         ConfigResponse {
-            reward_token: "reward0000".to_string(),
-            staking_token: "staking0000".to_string(),
+            reward_token: deps.api.addr_make("reward0000").to_string(),
+            staking_token: deps.api.addr_make("staking0000").to_string(),
             distribution_schedule: vec![(100, 200, Uint128::from(1000000u128))],
         }
     );
@@ -64,9 +64,9 @@ fn test_bond_tokens() {
 
     let msg = InstantiateMsg {
         reward_token: AssetInfo::Token {
-            contract_addr: "reward0000".to_string(),
+            contract_addr: deps.api.addr_make("reward0000").to_string(),
         },
-        staking_token: "staking0000".to_string(),
+        staking_token: deps.api.addr_make("staking0000").to_string(),
         distribution_schedule: vec![
             (
                 mock_env().block.time.seconds(),
@@ -85,7 +85,7 @@ fn test_bond_tokens() {
     let _res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
 
     let msg = ExecuteMsg::Receive(Cw20ReceiveMsg {
-        sender: "addr0000".to_string(),
+        sender: deps.api.addr_make("addr0000").to_string(),
         amount: Uint128::from(100u128),
         msg: to_json_binary(&Cw20HookMsg::Bond {}).unwrap(),
     });
@@ -100,7 +100,7 @@ fn test_bond_tokens() {
                 deps.as_ref(),
                 mock_env(),
                 QueryMsg::StakerInfo {
-                    staker: "addr0000".to_string(),
+                    staker: deps.api.addr_make("addr0000").to_string(),
                     block_time: None,
                 },
             )
@@ -108,7 +108,7 @@ fn test_bond_tokens() {
         )
         .unwrap(),
         StakerInfoResponse {
-            staker: "addr0000".to_string(),
+            staker: deps.api.addr_make("addr0000").to_string(),
             reward_index: Decimal::zero(),
             pending_reward: Uint128::zero(),
             bond_amount: Uint128::from(100u128),
@@ -134,7 +134,7 @@ fn test_bond_tokens() {
 
     // bond 100 more tokens
     let msg = ExecuteMsg::Receive(Cw20ReceiveMsg {
-        sender: "addr0000".to_string(),
+        sender: deps.api.addr_make("addr0000").to_string(),
         amount: Uint128::from(100u128),
         msg: to_json_binary(&Cw20HookMsg::Bond {}).unwrap(),
     });
@@ -148,7 +148,7 @@ fn test_bond_tokens() {
                 deps.as_ref(),
                 mock_env(),
                 QueryMsg::StakerInfo {
-                    staker: "addr0000".to_string(),
+                    staker: deps.api.addr_make("addr0000").to_string(),
                     block_time: None,
                 },
             )
@@ -156,7 +156,7 @@ fn test_bond_tokens() {
         )
         .unwrap(),
         StakerInfoResponse {
-            staker: "addr0000".to_string(),
+            staker: deps.api.addr_make("addr0000").to_string(),
             reward_index: Decimal::from_ratio(1000u128, 1u128),
             pending_reward: Uint128::from(100000u128),
             bond_amount: Uint128::from(200u128),
@@ -182,7 +182,7 @@ fn test_bond_tokens() {
 
     // failed with unauthorized
     let msg = ExecuteMsg::Receive(Cw20ReceiveMsg {
-        sender: "addr0000".to_string(),
+        sender: deps.api.addr_make("addr0000").to_string(),
         amount: Uint128::from(100u128),
         msg: to_json_binary(&Cw20HookMsg::Bond {}).unwrap(),
     });
@@ -201,9 +201,9 @@ fn test_unbond() {
 
     let msg = InstantiateMsg {
         reward_token: AssetInfo::Token {
-            contract_addr: "reward0000".to_string(),
+            contract_addr: deps.api.addr_make("reward0000").to_string(),
         },
-        staking_token: "staking0000".to_string(),
+        staking_token: deps.api.addr_make("staking0000").to_string(),
         distribution_schedule: vec![
             (12345, 12345 + 100, Uint128::from(1000000u128)),
             (12345 + 100, 12345 + 200, Uint128::from(10000000u128)),
@@ -215,7 +215,7 @@ fn test_unbond() {
 
     // bond 100 tokens
     let msg = ExecuteMsg::Receive(Cw20ReceiveMsg {
-        sender: "addr0000".to_string(),
+        sender: deps.api.addr_make("addr0000").to_string(),
         amount: Uint128::from(100u128),
         msg: to_json_binary(&Cw20HookMsg::Bond {}).unwrap(),
     });
@@ -246,9 +246,9 @@ fn test_unbond() {
     assert_eq!(
         res.messages,
         vec![SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
-            contract_addr: "staking0000".to_string(),
+            contract_addr: deps.api.addr_make("staking0000").to_string(),
             msg: to_json_binary(&Cw20ExecuteMsg::Transfer {
-                recipient: "addr0000".to_string(),
+                recipient: deps.api.addr_make("addr0000").to_string(),
                 amount: Uint128::from(100u128),
             })
             .unwrap(),
@@ -263,9 +263,9 @@ fn test_compute_reward() {
 
     let msg = InstantiateMsg {
         reward_token: AssetInfo::Token {
-            contract_addr: "reward0000".to_string(),
+            contract_addr: deps.api.addr_make("reward0000").to_string(),
         },
-        staking_token: "staking0000".to_string(),
+        staking_token: deps.api.addr_make("staking0000").to_string(),
         distribution_schedule: vec![
             (
                 mock_env().block.time.seconds(),
@@ -285,7 +285,7 @@ fn test_compute_reward() {
 
     // bond 100 tokens
     let msg = ExecuteMsg::Receive(Cw20ReceiveMsg {
-        sender: "addr0000".to_string(),
+        sender: deps.api.addr_make("addr0000").to_string(),
         amount: Uint128::from(100u128),
         msg: to_json_binary(&Cw20HookMsg::Bond {}).unwrap(),
     });
@@ -299,7 +299,7 @@ fn test_compute_reward() {
 
     // bond 100 more tokens
     let msg = ExecuteMsg::Receive(Cw20ReceiveMsg {
-        sender: "addr0000".to_string(),
+        sender: deps.api.addr_make("addr0000").to_string(),
         amount: Uint128::from(100u128),
         msg: to_json_binary(&Cw20HookMsg::Bond {}).unwrap(),
     });
@@ -311,7 +311,7 @@ fn test_compute_reward() {
                 deps.as_ref(),
                 mock_env(),
                 QueryMsg::StakerInfo {
-                    staker: "addr0000".to_string(),
+                    staker: deps.api.addr_make("addr0000").to_string(),
                     block_time: None,
                 },
             )
@@ -319,7 +319,7 @@ fn test_compute_reward() {
         )
         .unwrap(),
         StakerInfoResponse {
-            staker: "addr0000".to_string(),
+            staker: deps.api.addr_make("addr0000").to_string(),
             reward_index: Decimal::from_ratio(10000u128, 1u128),
             pending_reward: Uint128::from(1000000u128),
             bond_amount: Uint128::from(200u128),
@@ -342,7 +342,7 @@ fn test_compute_reward() {
                 deps.as_ref(),
                 mock_env(),
                 QueryMsg::StakerInfo {
-                    staker: "addr0000".to_string(),
+                    staker: deps.api.addr_make("addr0000").to_string(),
                     block_time: None,
                 },
             )
@@ -350,7 +350,7 @@ fn test_compute_reward() {
         )
         .unwrap(),
         StakerInfoResponse {
-            staker: "addr0000".to_string(),
+            staker: deps.api.addr_make("addr0000").to_string(),
             reward_index: Decimal::from_ratio(15000u64, 1u64),
             pending_reward: Uint128::from(2000000u128),
             bond_amount: Uint128::from(100u128),
@@ -364,7 +364,7 @@ fn test_compute_reward() {
                 deps.as_ref(),
                 mock_env(),
                 QueryMsg::StakerInfo {
-                    staker: "addr0000".to_string(),
+                    staker: deps.api.addr_make("addr0000").to_string(),
                     block_time: Some(mock_env().block.time.plus_seconds(120).seconds()),
                 },
             )
@@ -372,7 +372,7 @@ fn test_compute_reward() {
         )
         .unwrap(),
         StakerInfoResponse {
-            staker: "addr0000".to_string(),
+            staker: deps.api.addr_make("addr0000").to_string(),
             reward_index: Decimal::from_ratio(25000u64, 1u64),
             pending_reward: Uint128::from(3000000u128),
             bond_amount: Uint128::from(100u128),
@@ -386,9 +386,9 @@ fn test_withdraw() {
 
     let msg = InstantiateMsg {
         reward_token: AssetInfo::Token {
-            contract_addr: "reward0000".to_string(),
+            contract_addr: deps.api.addr_make("reward0000").to_string(),
         },
-        staking_token: "staking0000".to_string(),
+        staking_token: deps.api.addr_make("staking0000").to_string(),
         distribution_schedule: vec![
             (
                 mock_env().block.time.seconds(),
@@ -408,7 +408,7 @@ fn test_withdraw() {
 
     // bond 100 tokens
     let msg = ExecuteMsg::Receive(Cw20ReceiveMsg {
-        sender: "addr0000".to_string(),
+        sender: deps.api.addr_make("addr0000").to_string(),
         amount: Uint128::from(100u128),
         msg: to_json_binary(&Cw20HookMsg::Bond {}).unwrap(),
     });
@@ -428,9 +428,9 @@ fn test_withdraw() {
     assert_eq!(
         res.messages,
         vec![SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
-            contract_addr: "reward0000".to_string(),
+            contract_addr: deps.api.addr_make("reward0000").to_string(),
             msg: to_json_binary(&Cw20ExecuteMsg::Transfer {
-                recipient: "addr0000".to_string(),
+                recipient: deps.api.addr_make("addr0000").to_string(),
                 amount: Uint128::from(1000000u128),
             })
             .unwrap(),
@@ -445,9 +445,9 @@ fn test_migrate_staking() {
 
     let msg = InstantiateMsg {
         reward_token: AssetInfo::Token {
-            contract_addr: "reward0000".to_string(),
+            contract_addr: deps.api.addr_make("reward0000").to_string(),
         },
-        staking_token: "staking0000".to_string(),
+        staking_token: deps.api.addr_make("staking0000").to_string(),
         distribution_schedule: vec![
             (
                 mock_env().block.time.seconds(),
@@ -467,7 +467,7 @@ fn test_migrate_staking() {
 
     // bond 100 tokens
     let msg = ExecuteMsg::Receive(Cw20ReceiveMsg {
-        sender: "addr0000".to_string(),
+        sender: deps.api.addr_make("addr0000").to_string(),
         amount: Uint128::from(100u128),
         msg: to_json_binary(&Cw20HookMsg::Bond {}).unwrap(),
     });
@@ -486,9 +486,9 @@ fn test_migrate_staking() {
     assert_eq!(
         res.messages,
         vec![SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
-            contract_addr: "reward0000".to_string(),
+            contract_addr: deps.api.addr_make("reward0000").to_string(),
             msg: to_json_binary(&Cw20ExecuteMsg::Transfer {
-                recipient: "addr0000".to_string(),
+                recipient: deps.api.addr_make("addr0000").to_string(),
                 amount: Uint128::from(1000000u128),
             })
             .unwrap(),
@@ -501,7 +501,7 @@ fn test_migrate_staking() {
 
 
     let msg = ExecuteMsg::MigrateStaking {
-        new_staking_contract: "newstaking0000".to_string(),
+        new_staking_contract: deps.api.addr_make("newstaking0000").to_string(),
     };
 
     // unauthorized attempt
@@ -528,9 +528,9 @@ fn test_migrate_staking() {
     assert_eq!(
         res.messages,
         vec![SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
-            contract_addr: "reward0000".to_string(),
+            contract_addr: deps.api.addr_make("reward0000").to_string(),
             msg: to_json_binary(&Cw20ExecuteMsg::Transfer {
-                recipient: "newstaking0000".to_string(),
+                recipient: deps.api.addr_make("newstaking0000").to_string(),
                 amount: Uint128::from(5000000u128),
             })
             .unwrap(),
@@ -544,8 +544,8 @@ fn test_migrate_staking() {
     assert_eq!(
         config,
         ConfigResponse {
-            reward_token: "reward0000".to_string(),
-            staking_token: "staking0000".to_string(),
+            reward_token: deps.api.addr_make("reward0000").to_string(),
+            staking_token: deps.api.addr_make("staking0000").to_string(),
             distribution_schedule: vec![
                 (
                     mock_env().block.time.seconds(),
@@ -568,9 +568,9 @@ fn test_update_config() {
 
     let msg = InstantiateMsg {
         reward_token: AssetInfo::Token {
-            contract_addr: "reward0000".to_string(),
+            contract_addr: deps.api.addr_make("reward0000").to_string(),
         },
-        staking_token: "staking0000".to_string(),
+        staking_token: deps.api.addr_make("staking0000").to_string(),
         distribution_schedule: vec![
             (
                 mock_env().block.time.seconds(),
@@ -621,7 +621,7 @@ fn test_update_config() {
     // do some bond and update rewards
     // bond 100 tokens
     let msg = ExecuteMsg::Receive(Cw20ReceiveMsg {
-        sender: "addr0000".to_string(),
+        sender: deps.api.addr_make("addr0000").to_string(),
         amount: Uint128::from(100u128),
         msg: to_json_binary(&Cw20HookMsg::Bond {}).unwrap(),
     });
@@ -639,9 +639,9 @@ fn test_update_config() {
     assert_eq!(
         res.messages,
         vec![SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
-            contract_addr: "reward0000".to_string(),
+            contract_addr: deps.api.addr_make("reward0000").to_string(),
             msg: to_json_binary(&Cw20ExecuteMsg::Transfer {
-                recipient: "addr0000".to_string(),
+                recipient: deps.api.addr_make("addr0000").to_string(),
                 amount: Uint128::from(1000000u128),
             })
             .unwrap(),
@@ -692,7 +692,7 @@ fn test_update_config() {
     // do some bond and update rewards
     // bond 100 tokens
     let msg = ExecuteMsg::Receive(Cw20ReceiveMsg {
-        sender: "addr0000".to_string(),
+        sender: deps.api.addr_make("addr0000").to_string(),
         amount: Uint128::from(100u128),
         msg: to_json_binary(&Cw20HookMsg::Bond {}).unwrap(),
     });
@@ -739,7 +739,7 @@ fn test_update_config() {
         ],
     };
 
-    deps.querier.with_anc_minter("gov0000".to_string());
+    deps.querier.with_anc_minter(deps.api.addr_make("gov0000").to_string());
 
     let info = message_info(&deps.api.addr_make("gov0000"), &[]);
     let res = execute(deps.as_mut(), mock_env(), info, update_config);
@@ -781,7 +781,7 @@ fn test_update_config() {
         ],
     };
 
-    deps.querier.with_anc_minter("gov0000".to_string());
+    deps.querier.with_anc_minter(deps.api.addr_make("gov0000").to_string());
 
     let info = message_info(&deps.api.addr_make("gov0000"), &[]);
     let res = execute(deps.as_mut(), mock_env(), info, update_config).unwrap();
@@ -853,7 +853,7 @@ fn test_update_config() {
         ],
     };
 
-    deps.querier.with_anc_minter("gov0000".to_string());
+    deps.querier.with_anc_minter(deps.api.addr_make("gov0000").to_string());
 
     let info = message_info(&deps.api.addr_make("gov0000"), &[]);
     let res = execute(deps.as_mut(), mock_env(), info, update_config).unwrap();
@@ -924,7 +924,7 @@ fn test_update_config() {
         ],
     };
 
-    deps.querier.with_anc_minter("gov0000".to_string());
+    deps.querier.with_anc_minter(deps.api.addr_make("gov0000").to_string());
 
     let info = message_info(&deps.api.addr_make("gov0000"), &[]);
     let res = execute(deps.as_mut(), mock_env(), info, update_config).unwrap();
@@ -1000,7 +1000,7 @@ fn test_update_config() {
         ],
     };
 
-    deps.querier.with_anc_minter("gov0000".to_string());
+    deps.querier.with_anc_minter(deps.api.addr_make("gov0000").to_string());
 
     let info = message_info(&deps.api.addr_make("gov0000"), &[]);
     let res = execute(deps.as_mut(), mock_env(), info, update_config).unwrap();
@@ -1058,7 +1058,7 @@ fn test_instantiate_and_query_native_reward_token() {
     // Instantiate the contract with a native reward token (e.g., "inj")
     let msg = InstantiateMsg {
         reward_token: AssetInfo::NativeToken { denom: "inj".to_string() },
-        staking_token: "staking0000".to_string(),
+        staking_token: deps.api.addr_make("staking0000").to_string(),
         distribution_schedule: vec![
             (current_time, current_time + 100, Uint128::from(1000000u128)),
             (current_time + 100, current_time + 200, Uint128::from(10000000u128)),
@@ -1073,7 +1073,7 @@ fn test_instantiate_and_query_native_reward_token() {
     let res = query(deps.as_ref(), env.clone(), QueryMsg::Config {}).unwrap();
     let config: ConfigResponse = from_json(&res).unwrap();
     assert_eq!(config.reward_token, "inj".to_string());
-    assert_eq!(config.staking_token, "staking0000".to_string());
+    assert_eq!(config.staking_token, deps.api.addr_make("staking0000").to_string());
 }
 
 #[test]
@@ -1085,7 +1085,7 @@ fn test_withdraw_native_reward_token() {
     // Instantiate with a native reward token ("inj")
     let msg = InstantiateMsg {
         reward_token: AssetInfo::NativeToken { denom: "inj".to_string() },
-        staking_token: "staking0000".to_string(),
+        staking_token: deps.api.addr_make("staking0000").to_string(),
         distribution_schedule: vec![
             (current_time, current_time + 100, Uint128::from(1000000u128)),
             (current_time + 100, current_time + 200, Uint128::from(10000000u128)),
@@ -1097,7 +1097,7 @@ fn test_withdraw_native_reward_token() {
 
     // Bond 100 tokens.
     let bond_msg = ExecuteMsg::Receive(Cw20ReceiveMsg {
-        sender: "addr0000".to_string(),
+        sender: deps.api.addr_make("addr0000").to_string(),
         amount: Uint128::from(100u128),
         msg: to_json_binary(&Cw20HookMsg::Bond {}).unwrap(),
     });
@@ -1118,7 +1118,7 @@ fn test_withdraw_native_reward_token() {
     assert_eq!(
         res.messages,
         vec![SubMsg::new(CosmosMsg::Bank(BankMsg::Send {
-            to_address: "addr0000".to_string(),
+            to_address: deps.api.addr_make("addr0000").to_string(),
             amount: coins(1000000, "inj"),
         }))]
     );

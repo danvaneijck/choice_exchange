@@ -1,6 +1,6 @@
 use cosmwasm_std::testing::{mock_env, message_info, MOCK_CONTRACT_ADDR};
 use cosmwasm_std::{
-    coin, from_json, to_json_binary, Addr, Coin, CosmosMsg, StdError, SubMsg, Uint128, WasmMsg,
+    coin, from_json, to_json_binary, Addr, Api, Coin, CosmosMsg, StdError, SubMsg, Uint128, WasmMsg
 };
 
 use crate::contract::{execute, instantiate, query};
@@ -20,7 +20,7 @@ fn proper_initialization() {
     let mut deps = mock_dependencies(&[]);
 
     let msg = InstantiateMsg {
-        choice_factory: "choicefactory".to_string(),
+        choice_factory: deps.api.addr_make("choicefactory").to_string(),
     };
 
     let info = message_info(&deps.api.addr_make("addr0000"), &[]);
@@ -31,19 +31,19 @@ fn proper_initialization() {
     // it worked, let's query the state
     let config: ConfigResponse =
         from_json(&query(deps.as_ref(), mock_env(), QueryMsg::Config {}).unwrap()).unwrap();
-    assert_eq!("choicefactory", config.choice_factory.as_str());
+    assert_eq!(deps.api.addr_make("choicefactory").to_string(), config.choice_factory.as_str());
 }
 
 #[test]
 fn execute_swap_operations() {
     let mut deps = mock_dependencies(&[]);
     deps.querier.with_token_balances(&[(
-        &"asset0002".to_string(),
+        &deps.api.addr_make("asset0002").to_string(),
         &[(&MOCK_CONTRACT_ADDR.to_string(), &Uint128::from(1000000u128))],
     )]);
 
     let msg = InstantiateMsg {
-        choice_factory: "choicefactory".to_string(),
+        choice_factory: deps.api.addr_make("choicefactory").to_string(),
     };
 
     let info = message_info(&deps.api.addr_make("addr0000"), &[]);
@@ -72,12 +72,12 @@ fn execute_swap_operations() {
                     denom: "ukrw".to_string(),
                 },
                 ask_asset_info: AssetInfo::Token {
-                    contract_addr: "asset0001".to_string(),
+                    contract_addr: deps.api.addr_make("asset0001").to_string(),
                 },
             },
             SwapOperation::Choice {
                 offer_asset_info: AssetInfo::Token {
-                    contract_addr: "asset0001".to_string(),
+                    contract_addr: deps.api.addr_make("asset0001").to_string(),
                 },
                 ask_asset_info: AssetInfo::NativeToken {
                     denom: "inj".to_string(),
@@ -88,7 +88,7 @@ fn execute_swap_operations() {
                     denom: "inj".to_string(),
                 },
                 ask_asset_info: AssetInfo::Token {
-                    contract_addr: "asset0002".to_string(),
+                    contract_addr: deps.api.addr_make("asset0002").to_string(),
                 },
             },
         ],
@@ -111,7 +111,7 @@ fn execute_swap_operations() {
                             denom: "ukrw".to_string(),
                         },
                         ask_asset_info: AssetInfo::Token {
-                            contract_addr: "asset0001".to_string(),
+                            contract_addr: deps.api.addr_make("asset0001").to_string(),
                         },
                     },
                     to: None,
@@ -125,7 +125,7 @@ fn execute_swap_operations() {
                 msg: to_json_binary(&ExecuteMsg::ExecuteSwapOperation {
                     operation: SwapOperation::Choice {
                         offer_asset_info: AssetInfo::Token {
-                            contract_addr: "asset0001".to_string(),
+                            contract_addr: deps.api.addr_make("asset0001").to_string(),
                         },
                         ask_asset_info: AssetInfo::NativeToken {
                             denom: "inj".to_string(),
@@ -145,10 +145,10 @@ fn execute_swap_operations() {
                             denom: "inj".to_string(),
                         },
                         ask_asset_info: AssetInfo::Token {
-                            contract_addr: "asset0002".to_string(),
+                            contract_addr: deps.api.addr_make("asset0002").to_string(),
                         },
                     },
-                    to: Some("addr0000".to_string()),
+                    to: Some(deps.api.addr_make("addr0000").to_string()),
                     deadline: None,
                 })
                 .unwrap(),
@@ -158,11 +158,11 @@ fn execute_swap_operations() {
                 funds: vec![],
                 msg: to_json_binary(&ExecuteMsg::AssertMinimumReceive {
                     asset_info: AssetInfo::Token {
-                        contract_addr: "asset0002".to_string(),
+                        contract_addr: deps.api.addr_make("asset0002").to_string(),
                     },
                     prev_balance: Uint128::zero(),
                     minimum_receive: Uint128::from(1000000u128),
-                    receiver: "addr0000".to_string(),
+                    receiver: deps.api.addr_make("addr0000").to_string(),
                 })
                 .unwrap(),
             })),
@@ -170,7 +170,7 @@ fn execute_swap_operations() {
     );
 
     let msg = ExecuteMsg::Receive(Cw20ReceiveMsg {
-        sender: "addr0000".to_string(),
+        sender: deps.api.addr_make("addr0000").to_string(),
         amount: Uint128::from(1000000u128),
         msg: to_json_binary(&Cw20HookMsg::ExecuteSwapOperations {
             operations: vec![
@@ -179,12 +179,12 @@ fn execute_swap_operations() {
                         denom: "ukrw".to_string(),
                     },
                     ask_asset_info: AssetInfo::Token {
-                        contract_addr: "asset0001".to_string(),
+                        contract_addr: deps.api.addr_make("asset0001").to_string(),
                     },
                 },
                 SwapOperation::Choice {
                     offer_asset_info: AssetInfo::Token {
-                        contract_addr: "asset0001".to_string(),
+                        contract_addr: deps.api.addr_make("asset0001").to_string(),
                     },
                     ask_asset_info: AssetInfo::NativeToken {
                         denom: "inj".to_string(),
@@ -195,12 +195,12 @@ fn execute_swap_operations() {
                         denom: "inj".to_string(),
                     },
                     ask_asset_info: AssetInfo::Token {
-                        contract_addr: "asset0002".to_string(),
+                        contract_addr: deps.api.addr_make("asset0002").to_string(),
                     },
                 },
             ],
             minimum_receive: None,
-            to: Some("addr0002".to_string()),
+            to: Some(deps.api.addr_make("addr0002").to_string()),
             deadline: None,
         })
         .unwrap(),
@@ -220,7 +220,7 @@ fn execute_swap_operations() {
                             denom: "ukrw".to_string(),
                         },
                         ask_asset_info: AssetInfo::Token {
-                            contract_addr: "asset0001".to_string(),
+                            contract_addr: deps.api.addr_make("asset0001").to_string(),
                         },
                     },
                     to: None,
@@ -234,7 +234,7 @@ fn execute_swap_operations() {
                 msg: to_json_binary(&ExecuteMsg::ExecuteSwapOperation {
                     operation: SwapOperation::Choice {
                         offer_asset_info: AssetInfo::Token {
-                            contract_addr: "asset0001".to_string(),
+                            contract_addr: deps.api.addr_make("asset0001").to_string(),
                         },
                         ask_asset_info: AssetInfo::NativeToken {
                             denom: "inj".to_string(),
@@ -254,10 +254,10 @@ fn execute_swap_operations() {
                             denom: "inj".to_string(),
                         },
                         ask_asset_info: AssetInfo::Token {
-                            contract_addr: "asset0002".to_string(),
+                            contract_addr: deps.api.addr_make("asset0002").to_string(),
                         },
                     },
-                    to: Some("addr0002".to_string()),
+                    to: Some(deps.api.addr_make("addr0002").to_string()),
                     deadline: None,
                 })
                 .unwrap(),
@@ -270,7 +270,7 @@ fn execute_swap_operations() {
 fn execute_swap_operation() {
     let mut deps = mock_dependencies(&[]);
     let msg = InstantiateMsg {
-        choice_factory: "choicefactory".to_string(),
+        choice_factory: deps.api.addr_make("choicefactory").to_string(),
     };
 
     let info = message_info(&deps.api.addr_make("addr0000"), &[]);
@@ -280,21 +280,21 @@ fn execute_swap_operation() {
 
     deps.querier.with_choice_factory(
         &[(
-            &"uusdasset0000".to_string(),
+            &("uusd".to_string() + deps.api.addr_make("asset0000").as_str()),
             &PairInfo {
                 asset_infos: [
                     AssetInfo::NativeToken {
                         denom: "uusd".to_string(),
                     },
                     AssetInfo::Token {
-                        contract_addr: "asset0000".to_string(),
+                        contract_addr: deps.api.addr_make("asset0000").to_string(),
                     },
                 ],
-                contract_addr: "pair0000".to_string(),
-                liquidity_token: "liquidity0000".to_string(),
+                contract_addr: deps.api.addr_make("pair0000").to_string(),
+                liquidity_token: deps.api.addr_make("liquidity0000").to_string(),
                 asset_decimals: [6u8, 6u8],
-                burn_address: "burnaddr0000".to_string(), // New field
-                fee_wallet_address: "feeaddr0000".to_string(), // New field
+                burn_address: deps.api.addr_make("burnaddr0000").to_string(), // New field
+                fee_wallet_address: deps.api.addr_make("feeaddr0000").to_string(), // New field
             },
         )],
         &[("uusd".to_string(), 6u8)],
@@ -314,7 +314,7 @@ fn execute_swap_operation() {
                 denom: "uusd".to_string(),
             },
             ask_asset_info: AssetInfo::Token {
-                contract_addr: "asset0000".to_string(),
+                contract_addr: deps.api.addr_make("asset0000").to_string(),
             },
         },
         to: None,
@@ -327,14 +327,18 @@ fn execute_swap_operation() {
         _ => panic!("DO NOT ENTER HERE"),
     }
 
-    let info = message_info(&deps.api.addr_make(MOCK_CONTRACT_ADDR), &[]);
+    let sender = deps.api.addr_validate(MOCK_CONTRACT_ADDR).unwrap();
+    let info = message_info(&sender, &[]);
+    println!("msg info: {:?}", info);
+
     let res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
+
     assert_eq!(
         res.messages,
         vec![SubMsg::new(
             asset_into_swap_msg(
                 deps.as_ref(),
-                Addr::unchecked("pair0000"),
+                Addr::unchecked(deps.api.addr_make("pair0000")),
                 Asset {
                     info: AssetInfo::NativeToken {
                         denom: "uusd".to_string(),
@@ -357,20 +361,21 @@ fn execute_swap_operation() {
                 denom: "uusd".to_string(),
             },
             ask_asset_info: AssetInfo::Token {
-                contract_addr: "asset0000".to_string(),
+                contract_addr: deps.api.addr_make("asset0000").to_string(),
             },
         },
-        to: Some("addr0000".to_string()),
+        to: Some(deps.api.addr_make("addr0000").to_string()),
         deadline: None,
     };
-    let info = message_info(&deps.api.addr_make(MOCK_CONTRACT_ADDR), &[]);
+
+    let info = message_info( &deps.api.addr_validate(MOCK_CONTRACT_ADDR).unwrap(), &[]);
     let res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
     assert_eq!(
         res.messages,
         vec![SubMsg::new(
             asset_into_swap_msg(
                 deps.as_ref(),
-                Addr::unchecked("pair0000"),
+                Addr::unchecked(deps.api.addr_make("pair0000")),
                 Asset {
                     info: AssetInfo::NativeToken {
                         denom: "uusd".to_string(),
@@ -378,7 +383,7 @@ fn execute_swap_operation() {
                     amount: Uint128::from(1000000u128)
                 },
                 None,
-                Some("addr0000".to_string()),
+                Some(deps.api.addr_make("addr0000").to_string()),
                 None,
             )
             .unwrap()
@@ -386,63 +391,63 @@ fn execute_swap_operation() {
     );
     deps.querier.with_choice_factory(
         &[(
-            &"assetuusd".to_string(),
+            &format!("uusd{}", deps.api.addr_make("asset")),
             &PairInfo {
                 asset_infos: [
                     AssetInfo::Token {
-                        contract_addr: "asset".to_string(),
+                        contract_addr: deps.api.addr_make("asset").to_string(),
                     },
                     AssetInfo::NativeToken {
                         denom: "uusd".to_string(),
                     },
                 ],
-                contract_addr: "pair0000".to_string(),
-                liquidity_token: "liquidity0000".to_string(),
+                contract_addr: deps.api.addr_make("pair0000").to_string(),
+                liquidity_token: deps.api.addr_make("liquidity0000").to_string(),
                 asset_decimals: [6u8, 6u8],
-                burn_address: "burnaddr0000".to_string(), // New field
-                fee_wallet_address: "feeaddr0000".to_string(), // New field
+                burn_address: deps.api.addr_make("burnaddr0000").to_string(), // New field
+                fee_wallet_address: deps.api.addr_make("feeaddr0000").to_string(), // New field
             },
         )],
         &[("uusd".to_string(), 6u8)],
     );
     deps.querier.with_token_balances(&[(
-        &"asset".to_string(),
+        &deps.api.addr_make("asset").to_string(),
         &[(&MOCK_CONTRACT_ADDR.to_string(), &Uint128::from(1000000u128))],
     )]);
 
     let msg = ExecuteMsg::ExecuteSwapOperation {
         operation: SwapOperation::Choice {
             offer_asset_info: AssetInfo::Token {
-                contract_addr: "asset".to_string(),
+                contract_addr: deps.api.addr_make("asset").to_string(),
             },
             ask_asset_info: AssetInfo::NativeToken {
                 denom: "uusd".to_string(),
             },
         },
-        to: Some("addr0000".to_string()),
+        to: Some(deps.api.addr_make("addr0000").to_string()),
         deadline: None,
     };
 
-    let info = message_info(&deps.api.addr_make(MOCK_CONTRACT_ADDR), &[]);
+    let info = message_info(&deps.api.addr_validate(MOCK_CONTRACT_ADDR).unwrap(), &[]);
     let res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
     assert_eq!(
         res.messages,
         vec![SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
-            contract_addr: "asset".to_string(),
+            contract_addr: deps.api.addr_make("asset").to_string(),
             funds: vec![],
             msg: to_json_binary(&Cw20ExecuteMsg::Send {
-                contract: "pair0000".to_string(),
+                contract: deps.api.addr_make("pair0000").to_string(),
                 amount: Uint128::from(1000000u128),
                 msg: to_json_binary(&PairExecuteMsg::Swap {
                     offer_asset: Asset {
                         info: AssetInfo::Token {
-                            contract_addr: "asset".to_string(),
+                            contract_addr: deps.api.addr_make("asset").to_string(),
                         },
                         amount: Uint128::from(1000000u128),
                     },
                     belief_price: None,
                     max_spread: None,
-                    to: Some("addr0000".to_string()),
+                    to: Some(deps.api.addr_make("addr0000").to_string()),
                     deadline: None,
                 })
                 .unwrap()
@@ -457,7 +462,7 @@ fn query_buy_with_routes() {
     let mut deps = mock_dependencies(&[]);
 
     let msg = InstantiateMsg {
-        choice_factory: "choicefactory".to_string(),
+        choice_factory: deps.api.addr_make("choicefactory").to_string(),
     };
 
     let info = message_info(&deps.api.addr_make("addr0000"), &[]);
@@ -473,12 +478,12 @@ fn query_buy_with_routes() {
                     denom: "ukrw".to_string(),
                 },
                 ask_asset_info: AssetInfo::Token {
-                    contract_addr: "asset0000".to_string(),
+                    contract_addr: deps.api.addr_make("asset0000").to_string(),
                 },
             },
             SwapOperation::Choice {
                 offer_asset_info: AssetInfo::Token {
-                    contract_addr: "asset0000".to_string(),
+                    contract_addr: deps.api.addr_make("asset0000").to_string(),
                 },
                 ask_asset_info: AssetInfo::NativeToken {
                     denom: "inj".to_string(),
@@ -490,39 +495,39 @@ fn query_buy_with_routes() {
     deps.querier.with_choice_factory(
         &[
             (
-                &"ukrwasset0000".to_string(),
+                &format!("ukrw{}", deps.api.addr_make("asset0000")),
                 &PairInfo {
                     asset_infos: [
                         AssetInfo::NativeToken {
                             denom: "ukrw".to_string(),
                         },
                         AssetInfo::Token {
-                            contract_addr: "asset0000".to_string(),
+                            contract_addr: deps.api.addr_make("asset0000").to_string(),
                         },
                     ],
-                    contract_addr: "pair0000".to_string(),
-                    liquidity_token: "liquidity0000".to_string(),
+                    contract_addr: deps.api.addr_make("pair0000").to_string(),
+                    liquidity_token: deps.api.addr_make("liquidity0000").to_string(),
                     asset_decimals: [6u8, 6u8],
-                    burn_address: "burnaddr0000".to_string(), // New field
-                    fee_wallet_address: "feeaddr0000".to_string(), // New field
+                    burn_address: deps.api.addr_make("burnaddr0000").to_string(), // New field
+                    fee_wallet_address: deps.api.addr_make("feeaddr0000").to_string(), // New field
                 },
             ),
             (
-                &"asset0000inj".to_string(),
+                &format!("{}inj", deps.api.addr_make("asset0000")),
                 &PairInfo {
                     asset_infos: [
                         AssetInfo::Token {
-                            contract_addr: "asset0000".to_string(),
+                            contract_addr: deps.api.addr_make("asset0000").to_string(),
                         },
                         AssetInfo::NativeToken {
                             denom: "inj".to_string(),
                         },
                     ],
-                    contract_addr: "pair0001".to_string(),
-                    liquidity_token: "liquidity0001".to_string(),
+                    contract_addr: deps.api.addr_make("pair0001").to_string(),
+                    liquidity_token: deps.api.addr_make("liquidity0001").to_string(),
                     asset_decimals: [6u8, 6u8],
-                    burn_address: "burnaddr0000".to_string(), // New field
-                    fee_wallet_address: "feeaddr0000".to_string(), // New field
+                    burn_address: deps.api.addr_make("burnaddr0000").to_string(), // New field
+                    fee_wallet_address: deps.api.addr_make("feeaddr0000").to_string(), // New field
                 },
             ),
         ],
@@ -544,7 +549,7 @@ fn query_reverse_routes_with_from_native() {
     let mut deps = mock_dependencies(&[]);
 
     let msg = InstantiateMsg {
-        choice_factory: "choicefactory".to_string(),
+        choice_factory: deps.api.addr_make("choicefactory").to_string(),
     };
 
     let target_amount = 1000000u128;
@@ -564,7 +569,7 @@ fn query_reverse_routes_with_from_native() {
     )]);
 
     deps.querier.with_token_balances(&[(
-        &"asset0001".to_string(),
+        &deps.api.addr_make("asset0001").to_string(),
         &[(&MOCK_CONTRACT_ADDR.to_string(), &Uint128::from(1000000u128))],
     )]);
 
@@ -575,7 +580,7 @@ fn query_reverse_routes_with_from_native() {
                 denom: "ukrw".to_string(),
             },
             ask_asset_info: AssetInfo::Token {
-                contract_addr: "asset0000".to_string(),
+                contract_addr: deps.api.addr_make("asset0000").to_string(),
             },
         }],
     };
@@ -583,39 +588,39 @@ fn query_reverse_routes_with_from_native() {
     deps.querier.with_choice_factory(
         &[
             (
-                &"ukrwasset0000".to_string(),
+                 &format!("ukrw{}", deps.api.addr_make("asset0000")),
                 &PairInfo {
-                    contract_addr: "pair0000".to_string(),
+                    contract_addr: deps.api.addr_make("pair0000").to_string(),
                     liquidity_token: "liquidity0000".to_string(),
                     asset_infos: [
                         AssetInfo::Token {
-                            contract_addr: "asset0000".to_string(),
+                            contract_addr: deps.api.addr_make("asset0000").to_string(),
                         },
                         AssetInfo::NativeToken {
                             denom: "ukrw".to_string(),
                         },
                     ],
                     asset_decimals: [8u8, 6u8],
-                    burn_address: "burnaddr0000".to_string(), // New field
-                    fee_wallet_address: "feeaddr0000".to_string(), // New field
+                    burn_address: deps.api.addr_make("burnaddr0000").to_string(), // New field
+                    fee_wallet_address: deps.api.addr_make("feeaddr0000").to_string(), // New field
                 },
             ),
             (
-                &"asset0000inj".to_string(),
+                &format!("{}inj", deps.api.addr_make("asset0000")),
                 &PairInfo {
-                    contract_addr: "pair0001".to_string(),
-                    liquidity_token: "liquidity0001".to_string(),
+                    contract_addr: deps.api.addr_make("pair0001").to_string(),
+                    liquidity_token: deps.api.addr_make("liquidity0001").to_string(),
                     asset_infos: [
                         AssetInfo::Token {
-                            contract_addr: "asset0000".to_string(),
+                            contract_addr: deps.api.addr_make("asset0000").to_string(),
                         },
                         AssetInfo::NativeToken {
                             denom: "inj".to_string(),
                         },
                     ],
                     asset_decimals: [8u8, 6u8],
-                    burn_address: "burnaddr0000".to_string(), // New field
-                    fee_wallet_address: "feeaddr0000".to_string(), // New field
+                    burn_address: deps.api.addr_make("burnaddr0000").to_string(), // New field
+                    fee_wallet_address: deps.api.addr_make("feeaddr0000").to_string(), // New field
                 },
             ),
         ],
@@ -640,7 +645,7 @@ fn query_reverse_routes_with_from_native() {
                 denom: "ukrw".to_string(),
             },
             ask_asset_info: AssetInfo::Token {
-                contract_addr: "asset0000".to_string(),
+                contract_addr: deps.api.addr_make("asset0000").to_string(),
             },
         },
         to: None,
@@ -653,13 +658,13 @@ fn query_reverse_routes_with_from_native() {
         _ => panic!("DO NOT ENTER HERE"),
     }
 
-    let info = message_info(&deps.api.addr_make(MOCK_CONTRACT_ADDR), &[]);
+    let info = message_info(&deps.api.addr_validate(MOCK_CONTRACT_ADDR).unwrap(), &[]);
     let res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
 
     assert_eq!(
         res.messages,
         vec![SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
-            contract_addr: "pair0000".to_string(),
+            contract_addr: deps.api.addr_make("pair0000").to_string(),
             funds: vec![coin(target_amount, "ukrw")],
             msg: to_json_binary(&PairExecuteMsg::Swap {
                 offer_asset: Asset {
@@ -683,7 +688,7 @@ fn query_reverse_routes_with_to_native() {
     let mut deps = mock_dependencies(&[]);
 
     let msg = InstantiateMsg {
-        choice_factory: "choicefactory".to_string(),
+        choice_factory: deps.api.addr_make("choicefactory").to_string(),
     };
 
     let target_amount = 1000000u128;
@@ -695,11 +700,11 @@ fn query_reverse_routes_with_to_native() {
 
     deps.querier.with_token_balances(&[
         (
-            &"asset0000".to_string(),
-            &[(&"pair0000".to_string(), &Uint128::from(1000000u128))],
+            &deps.api.addr_make("asset0000").to_string(),
+            &[(&deps.api.addr_make("pair0000").to_string(), &Uint128::from(1000000u128))],
         ),
         (
-            &"asset0000".to_string(),
+            &deps.api.addr_make("asset0000").to_string(),
             &[(&MOCK_CONTRACT_ADDR.to_string(), &Uint128::from(1000000u128))],
         ),
     ]);
@@ -708,7 +713,7 @@ fn query_reverse_routes_with_to_native() {
         ask_amount: Uint128::from(target_amount),
         operations: vec![SwapOperation::Choice {
             offer_asset_info: AssetInfo::Token {
-                contract_addr: "asset0000".to_string(),
+                contract_addr: deps.api.addr_make("asset0000").to_string(),
             },
             ask_asset_info: AssetInfo::NativeToken {
                 denom: "ukrw".to_string(),
@@ -719,39 +724,39 @@ fn query_reverse_routes_with_to_native() {
     deps.querier.with_choice_factory(
         &[
             (
-                &"ukrwasset0000".to_string(),
+                &format!("ukrw{}", deps.api.addr_make("asset0000")),
                 &PairInfo {
-                    contract_addr: "pair0000".to_string(),
-                    liquidity_token: "liquidity0000".to_string(),
+                    contract_addr: deps.api.addr_make("pair0000").to_string(),
+                    liquidity_token: deps.api.addr_make("liquidity0000").to_string(),
                     asset_infos: [
                         AssetInfo::Token {
-                            contract_addr: "asset0000".to_string(),
+                            contract_addr: deps.api.addr_make("asset0000").to_string(),
                         },
                         AssetInfo::NativeToken {
                             denom: "ukrw".to_string(),
                         },
                     ],
                     asset_decimals: [8u8, 6u8],
-                    burn_address: "burnaddr0000".to_string(), // New field
-                    fee_wallet_address: "feeaddr0000".to_string(), // New field
+                    burn_address: deps.api.addr_make("burnaddr0000").to_string(), // New field
+                    fee_wallet_address: deps.api.addr_make("feeaddr0000").to_string(), // New field
                 },
             ),
             (
-                &"asset0000inj".to_string(),
+                &format!("{}inj", deps.api.addr_make("asset0000")),
                 &PairInfo {
-                    contract_addr: "pair0001".to_string(),
-                    liquidity_token: "liquidity0001".to_string(),
+                    contract_addr: deps.api.addr_make("pair0001").to_string(),
+                    liquidity_token: deps.api.addr_make("liquidity0001").to_string(),
                     asset_infos: [
                         AssetInfo::Token {
-                            contract_addr: "asset0000".to_string(),
+                            contract_addr: deps.api.addr_make("asset0000").to_string(),
                         },
                         AssetInfo::NativeToken {
                             denom: "inj".to_string(),
                         },
                     ],
                     asset_decimals: [8u8, 6u8],
-                    burn_address: "burnaddr0000".to_string(), // New field
-                    fee_wallet_address: "feeaddr0000".to_string(), // New field
+                    burn_address: deps.api.addr_make("burnaddr0000").to_string(), // New field
+                    fee_wallet_address: deps.api.addr_make("feeaddr0000").to_string(), // New field
                 },
             ),
         ],
@@ -771,12 +776,12 @@ fn query_reverse_routes_with_to_native() {
     let offer_amount = res.amount;
 
     let msg = ExecuteMsg::Receive(Cw20ReceiveMsg {
-        sender: "addr0".to_string(),
+        sender: deps.api.addr_make("addr0").to_string(),
         amount: offer_amount,
         msg: to_json_binary(&Cw20HookMsg::ExecuteSwapOperations {
             operations: vec![SwapOperation::Choice {
                 offer_asset_info: AssetInfo::Token {
-                    contract_addr: "asset0000".to_string(),
+                    contract_addr: deps.api.addr_make("asset0000").to_string(),
                 },
                 ask_asset_info: AssetInfo::NativeToken {
                     denom: "ukrw".to_string(),
@@ -799,13 +804,13 @@ fn query_reverse_routes_with_to_native() {
             msg: to_json_binary(&ExecuteMsg::ExecuteSwapOperation {
                 operation: SwapOperation::Choice {
                     offer_asset_info: AssetInfo::Token {
-                        contract_addr: "asset0000".to_string(),
+                        contract_addr: deps.api.addr_make("asset0000").to_string(),
                     },
                     ask_asset_info: AssetInfo::NativeToken {
                         denom: "ukrw".to_string(),
                     },
                 },
-                to: Some("addr0".to_string()),
+                to: Some(deps.api.addr_make("addr0").to_string()),
                 deadline: None,
             })
             .unwrap(),
@@ -815,7 +820,7 @@ fn query_reverse_routes_with_to_native() {
     let msg = ExecuteMsg::ExecuteSwapOperation {
         operation: SwapOperation::Choice {
             offer_asset_info: AssetInfo::Token {
-                contract_addr: "asset0000".to_string(),
+                contract_addr: deps.api.addr_make("asset0000").to_string(),
             },
             ask_asset_info: AssetInfo::NativeToken {
                 denom: "ukrw".to_string(),
@@ -825,21 +830,21 @@ fn query_reverse_routes_with_to_native() {
         deadline: None,
     };
 
-    let info = message_info(&deps.api.addr_make(MOCK_CONTRACT_ADDR), &[]);
+    let info = message_info(&deps.api.addr_validate(MOCK_CONTRACT_ADDR).unwrap(), &[]);
     let res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
 
     assert_eq!(
         res.messages,
         vec![SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
-            contract_addr: "asset0000".to_string(),
+            contract_addr: deps.api.addr_make("asset0000").to_string(),
             funds: vec![],
             msg: to_json_binary(&Cw20ExecuteMsg::Send {
-                contract: "pair0000".to_string(),
+                contract: deps.api.addr_make("pair0000").to_string(),
                 amount: Uint128::from(target_amount),
                 msg: to_json_binary(&PairExecuteMsg::Swap {
                     offer_asset: Asset {
                         info: AssetInfo::Token {
-                            contract_addr: "asset0000".to_string(),
+                            contract_addr: deps.api.addr_make("asset0000").to_string(),
                         },
                         amount: Uint128::from(target_amount),
                     },
@@ -859,7 +864,7 @@ fn query_reverse_routes_with_to_native() {
 fn assert_minimum_receive_native_token() {
     let mut deps = mock_dependencies(&[]);
     deps.querier.with_balance(&[(
-        &"addr0000".to_string(),
+        &deps.api.addr_make("addr0000").to_string(),
         [Coin {
             denom: "uusd".to_string(),
             amount: Uint128::from(1000000u128),
@@ -875,7 +880,7 @@ fn assert_minimum_receive_native_token() {
         },
         prev_balance: Uint128::zero(),
         minimum_receive: Uint128::from(1000000u128),
-        receiver: "addr0000".to_string(),
+        receiver: deps.api.addr_make("addr0000").to_string(),
     };
     let _res = execute(deps.as_mut(), mock_env(), info.clone(), msg).unwrap();
 
@@ -886,7 +891,7 @@ fn assert_minimum_receive_native_token() {
         },
         prev_balance: Uint128::zero(),
         minimum_receive: Uint128::from(1000001u128),
-        receiver: "addr0000".to_string(),
+        receiver: deps.api.addr_make("addr0000").to_string(),
     };
     let res = execute(deps.as_mut(), mock_env(), info, msg);
     match res {
@@ -902,30 +907,30 @@ fn assert_minimum_receive_native_token() {
 fn assert_minimum_receive_token() {
     let mut deps = mock_dependencies(&[]);
     deps.querier.with_token_balances(&[(
-        &"token0000".to_string(),
-        &[(&"addr0000".to_string(), &Uint128::from(1000000u128))],
+        &deps.api.addr_make("token0000").to_string(),
+        &[(&deps.api.addr_make("addr0000").to_string(), &Uint128::from(1000000u128))],
     )]);
 
     let info = message_info(&deps.api.addr_make("addr0000"), &[]);
     // success
     let msg = ExecuteMsg::AssertMinimumReceive {
         asset_info: AssetInfo::Token {
-            contract_addr: "token0000".to_string(),
+            contract_addr: deps.api.addr_make("token0000").to_string(),
         },
         prev_balance: Uint128::zero(),
         minimum_receive: Uint128::from(1000000u128),
-        receiver: "addr0000".to_string(),
+        receiver: deps.api.addr_make("addr0000").to_string(),
     };
     let _res = execute(deps.as_mut(), mock_env(), info.clone(), msg).unwrap();
 
     // assertion failed; native token
     let msg = ExecuteMsg::AssertMinimumReceive {
         asset_info: AssetInfo::Token {
-            contract_addr: "token0000".to_string(),
+            contract_addr: deps.api.addr_make("token0000").to_string(),
         },
         prev_balance: Uint128::zero(),
         minimum_receive: Uint128::from(1000001u128),
-        receiver: "addr0000".to_string(),
+        receiver: deps.api.addr_make("addr0000").to_string(),
     };
     let res = execute(deps.as_mut(), mock_env(), info, msg);
     match res {

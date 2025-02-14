@@ -101,8 +101,13 @@ fn supply_querier() {
 
 #[test]
 fn test_asset_info() {
+    let mut deps = mock_dependencies(&[Coin {
+        denom: "uusd".to_string(),
+        amount: Uint128::from(123u128),
+    }]);
+
     let token_info: AssetInfo = AssetInfo::Token {
-        contract_addr: "asset0000".to_string(),
+        contract_addr: deps.api.addr_make("asset0000").to_string(),
     };
     let native_token_info: AssetInfo = AssetInfo::NativeToken {
         denom: "uusd".to_string(),
@@ -111,27 +116,24 @@ fn test_asset_info() {
     assert!(!token_info.equal(&native_token_info));
 
     assert!(!token_info.equal(&AssetInfo::Token {
-        contract_addr: "asset0001".to_string(),
+        contract_addr: deps.api.addr_make("asset0001").to_string(),
     }));
 
     assert!(token_info.equal(&AssetInfo::Token {
-        contract_addr: "asset0000".to_string(),
+        contract_addr: deps.api.addr_make("asset0000").to_string(),
     }));
 
     assert!(native_token_info.is_native_token());
     assert!(!token_info.is_native_token());
 
-    let mut deps = mock_dependencies(&[Coin {
-        denom: "uusd".to_string(),
-        amount: Uint128::from(123u128),
-    }]);
+    
     deps.querier.with_token_balances(&[(
-        &"asset0000".to_string(),
+        &deps.api.addr_make("asset0000").to_string(),
         &[
             (&MOCK_CONTRACT_ADDR.to_string(), &Uint128::from(123u128)),
-            (&"addr00000".to_string(), &Uint128::from(123u128)),
-            (&"addr00001".to_string(), &Uint128::from(123u128)),
-            (&"addr00002".to_string(), &Uint128::from(123u128)),
+            (&deps.api.addr_make("addr00000").to_string(), &Uint128::from(123u128)),
+            (&deps.api.addr_make("addr00001").to_string(), &Uint128::from(123u128)),
+            (&deps.api.addr_make("addr00002").to_string(), &Uint128::from(123u128)),
         ],
     )]);
 
@@ -318,7 +320,7 @@ fn test_asset_to_raw() {
     let token_asset = Asset {
         amount: Uint128::from(1u128),
         info: AssetInfo::Token {
-            contract_addr: "contract0000".to_string(),
+            contract_addr: deps.api.addr_make("contract0000").to_string(),
         },
     };
 
@@ -329,7 +331,7 @@ fn test_asset_to_raw() {
         AssetRaw {
             amount: Uint128::from(1u128),
             info: AssetInfoRaw::Token {
-                contract_addr: deps.api.addr_canonicalize("contract0000").unwrap()
+                contract_addr: deps.api.addr_canonicalize(&deps.api.addr_make("contract0000").to_string()).unwrap()
             }
         }
     );
@@ -356,18 +358,18 @@ fn test_asset_info_raw_equal() {
 
     let deps = mock_dependencies(&[]);
     assert!(!native_asset_info_raw.equal(&AssetInfoRaw::Token {
-        contract_addr: deps.api.addr_canonicalize("contract0000").unwrap()
+        contract_addr: deps.api.addr_canonicalize(&deps.api.addr_make("contract0000").to_string()).unwrap()
     }));
 
     let token_asset_info_raw = AssetInfoRaw::Token {
-        contract_addr: deps.api.addr_canonicalize("contract0000").unwrap(),
+        contract_addr: deps.api.addr_canonicalize(&deps.api.addr_make("contract0000").to_string()).unwrap(),
     };
     assert!(token_asset_info_raw.equal(&AssetInfoRaw::Token {
-        contract_addr: deps.api.addr_canonicalize("contract0000").unwrap()
+        contract_addr: deps.api.addr_canonicalize(&deps.api.addr_make("contract0000").to_string()).unwrap()
     }));
 
     assert!(!token_asset_info_raw.equal(&AssetInfoRaw::Token {
-        contract_addr: deps.api.addr_canonicalize("contract000").unwrap()
+        contract_addr: deps.api.addr_canonicalize(&deps.api.addr_make("contract000").to_string()).unwrap()
     }));
 
     assert!(!token_asset_info_raw.equal(&AssetInfoRaw::NativeToken {
@@ -381,21 +383,21 @@ fn query_choice_pair_contract() {
 
     deps.querier.with_choice_factory(
         &[(
-            &"asset0000uusd".to_string(),
+            &format!("{}uusd", deps.api.addr_make("asset0000")),
             &PairInfo {
                 asset_infos: [
                     AssetInfo::Token {
-                        contract_addr: "asset0000".to_string(),
+                        contract_addr: deps.api.addr_make("asset0000").to_string(),
                     },
                     AssetInfo::NativeToken {
                         denom: "uusd".to_string(),
                     },
                 ],
-                contract_addr: "pair0000".to_string(),
-                liquidity_token: "liquidity0000".to_string(),
+                contract_addr: deps.api.addr_make("pair0000").to_string(),
+                liquidity_token: deps.api.addr_make("liquidity0000").to_string(),
                 asset_decimals: [6u8, 6u8],
-                burn_address: "burn0000".to_string(),
-                fee_wallet_address: "fee_wallet_address0000".to_string()
+                burn_address: deps.api.addr_make("burn0000").to_string(),
+                fee_wallet_address: deps.api.addr_make("fee_wallet_address0000").to_string()
             },
         )],
         &[("uusd".to_string(), 6u8)],
@@ -406,7 +408,7 @@ fn query_choice_pair_contract() {
         Addr::unchecked(MOCK_CONTRACT_ADDR),
         &[
             AssetInfo::Token {
-                contract_addr: "asset0000".to_string(),
+                contract_addr: deps.api.addr_make("asset0000").to_string(),
             },
             AssetInfo::NativeToken {
                 denom: "uusd".to_string(),
@@ -415,6 +417,6 @@ fn query_choice_pair_contract() {
     )
     .unwrap();
 
-    assert_eq!(&deps.api.addr_make(&pair_info.contract_addr), Addr::unchecked("pair0000"),);
-    assert_eq!(&deps.api.addr_make(&pair_info.liquidity_token), Addr::unchecked("liquidity0000"),);
+    assert_eq!(&deps.api.addr_validate(&pair_info.contract_addr).unwrap(), deps.api.addr_make("pair0000"),);
+    assert_eq!(&deps.api.addr_validate(&pair_info.liquidity_token).unwrap(), deps.api.addr_make("liquidity0000"),);
 }

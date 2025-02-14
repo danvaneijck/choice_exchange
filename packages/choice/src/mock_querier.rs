@@ -125,6 +125,7 @@ impl WasmMockQuerier {
             QueryRequest::Wasm(WasmQuery::Smart { contract_addr, msg }) => match from_json(msg) {
                 Ok(FactoryQueryMsg::Pair { asset_infos }) => {
                     let key = [asset_infos[0].to_string(), asset_infos[1].to_string()].join("");
+                    println!("key: {:?}", key);
                     let mut sort_key: Vec<char> = key.chars().collect();
                     sort_key.sort_by(|a, b| b.cmp(a));
                     match self
@@ -311,7 +312,7 @@ mod mock_exception {
         assert_eq!(
             deps.querier.raw_query(&[]),
             SystemResult::Err(SystemError::InvalidRequest {
-                error: "Parsing query request: Error parsing into type cosmwasm_std::query::QueryRequest<cosmwasm_std::results::empty::Empty>: EOF while parsing a JSON value.".to_string(),
+                error: "Parsing query request: Error parsing into type cosmwasm_std::query::QueryRequest: EOF while parsing a JSON value.".to_string(),
                 request: Binary::new(vec![])
             })
         );
