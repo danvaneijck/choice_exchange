@@ -16,6 +16,9 @@ pub struct InstantiateMsg {
 #[serde(rename_all = "snake_case")]
 pub enum ExecuteMsg {
     Receive(Cw20ReceiveMsg),
+    Bond {
+        amount: Uint128,
+    },
     Unbond {
         amount: Uint128,
     },

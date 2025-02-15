@@ -2,23 +2,21 @@
 use cosmwasm_std::entry_point;
 
 use cosmwasm_std::{
-    from_json, to_json_binary, coins, Addr, Binary, CanonicalAddr, CosmosMsg, Decimal, Deps, DepsMut, Env,
+    from_json, to_json_binary, coins, Addr, Binary, CanonicalAddr, CosmosMsg, Coin, Decimal, Deps, DepsMut, Env,
     MessageInfo, Response, StdError, StdResult, Uint128, WasmMsg, BankMsg
 };
 
-use choice::asset::{AssetInfo};
+use choice::asset::AssetInfo;
 
 use choice::staking::{
     ConfigResponse, Cw20HookMsg, ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg,
     StakerInfoResponse, StateResponse,
 };
 
-use crate::{
-    state::{
+use crate::state::{
         read_config, read_staker_info, read_state, remove_staker_info, store_config,
         store_staker_info, store_state, Config, StakerInfo, State,
-    },
-};
+    };
 
 use cw20::{Cw20ExecuteMsg, Cw20ReceiveMsg};
 use std::collections::BTreeMap;
@@ -36,7 +34,7 @@ pub fn instantiate(
         &Config {
             owner: deps.api.addr_canonicalize(_info.sender.as_str())?, 
             reward_token: msg.reward_token,
-            staking_token: deps.api.addr_canonicalize(&msg.staking_token)?,
+            staking_token: msg.staking_token,
             distribution_schedule: msg.distribution_schedule,
         },
     )?;
@@ -57,6 +55,24 @@ pub fn instantiate(
 pub fn execute(deps: DepsMut, env: Env, info: MessageInfo, msg: ExecuteMsg) -> StdResult<Response> {
     match msg {
         ExecuteMsg::Receive(msg) => receive_cw20(deps, env, info, msg),
+        ExecuteMsg::Bond { amount } => {
+            // Load the configuration so we can get the staking token information.
+            let config: Config = read_config(deps.storage)?;
+            // For native tokens, check that the funds sent match the staking token denom.
+            if let AssetInfo::NativeToken { ref denom } = config.staking_token {
+                let expected_coin = Coin {
+                    denom: denom.clone(),
+                    amount,
+                };
+
+                // Check that info.funds contains a coin with the expected denom and at least the expected amount.
+                let found = info.funds.iter().find(|&c| c.denom == expected_coin.denom && c.amount >= expected_coin.amount);
+                if found.is_none() {
+                    return Err(StdError::generic_err("Insufficient funds for bonding"));
+                }
+            }
+            bond(deps, env, info.sender.clone(), amount)
+        },
         ExecuteMsg::Unbond { amount } => unbond(deps, env, info, amount),
         ExecuteMsg::Withdraw {} => withdraw(deps, env, info),
         ExecuteMsg::MigrateStaking {
@@ -79,8 +95,17 @@ pub fn receive_cw20(
     match from_json(&cw20_msg.msg) {
         Ok(Cw20HookMsg::Bond {}) => {
             // only staking token contract can execute this message
-            if config.staking_token != deps.api.addr_canonicalize(info.sender.as_str())? {
-                return Err(StdError::generic_err("unauthorized"));
+            
+            match config.staking_token {
+                AssetInfo::Token { ref contract_addr } => {
+                    // Validate and compare the staking token contract address with the sender.
+                    if deps.api.addr_validate(contract_addr)? != info.sender {
+                        return Err(StdError::generic_err("unauthorized"));
+                    }
+                },
+                AssetInfo::NativeToken { ref denom } => {
+                    return Err(StdError::generic_err(&format!("staking token is native: {}", denom)));
+                },
             }
 
             let cw20_sender = deps.api.addr_validate(&cw20_msg.sender)?;
@@ -144,15 +169,23 @@ pub fn unbond(deps: DepsMut, env: Env, info: MessageInfo, amount: Uint128) -> St
     // Store updated state
     store_state(deps.storage, &state)?;
 
-    Ok(Response::new()
-        .add_messages(vec![CosmosMsg::Wasm(WasmMsg::Execute {
-            contract_addr: deps.api.addr_humanize(&config.staking_token)?.to_string(),
+    let unbond_msg = match config.staking_token {
+        AssetInfo::Token { ref contract_addr } => CosmosMsg::Wasm(WasmMsg::Execute {
+            contract_addr: contract_addr.clone(),
             msg: to_json_binary(&Cw20ExecuteMsg::Transfer {
                 recipient: info.sender.to_string(),
                 amount,
             })?,
             funds: vec![],
-        })])
+        }),
+        AssetInfo::NativeToken { ref denom } => CosmosMsg::Bank(BankMsg::Send {
+            to_address: info.sender.to_string(),
+            amount: coins(amount.u128(), denom),
+        }),
+    };
+    
+    Ok(Response::new()
+        .add_messages(vec![unbond_msg])
         .add_attributes(vec![
             ("action", "unbond"),
             ("owner", info.sender.as_str()),
@@ -395,9 +428,14 @@ pub fn query_config(deps: Deps) -> StdResult<ConfigResponse> {
         AssetInfo::NativeToken { ref denom } => denom.clone(),
     };
 
+    let staking_token_str = match config.staking_token {
+        AssetInfo::Token { ref contract_addr } => contract_addr.clone(),
+        AssetInfo::NativeToken { ref denom } => denom.clone(),
+    };
+
     let resp = ConfigResponse {
         reward_token: reward_token_str,
-        staking_token: deps.api.addr_humanize(&config.staking_token)?.to_string(),
+        staking_token: staking_token_str,
         distribution_schedule: config.distribution_schedule,
     };
 

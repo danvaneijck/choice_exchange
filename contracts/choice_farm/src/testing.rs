@@ -8,7 +8,7 @@ use choice::staking::{
 use choice::asset::AssetInfo;
 use cosmwasm_std::testing::{mock_env, message_info};
 use cosmwasm_std::{
-    attr, from_json, to_json_binary, coins, CosmosMsg, Decimal, StdError, SubMsg, Uint128, WasmMsg, BankMsg
+    attr, from_json, to_json_binary, coins, CosmosMsg, Coin, Decimal, StdError, SubMsg, Uint128, WasmMsg, BankMsg
 };
 use cw20::{Cw20ExecuteMsg, Cw20ReceiveMsg};
 
@@ -20,7 +20,9 @@ fn proper_initialization() {
         reward_token: AssetInfo::Token {
             contract_addr: deps.api.addr_make("reward0000").to_string(),
         },
-        staking_token: deps.api.addr_make("staking0000").to_string(),
+        staking_token: AssetInfo::Token {
+            contract_addr: deps.api.addr_make("staking0000").to_string(),
+        },
         distribution_schedule: vec![(100, 200, Uint128::from(1000000u128))],
     };
 
@@ -66,7 +68,9 @@ fn test_bond_tokens() {
         reward_token: AssetInfo::Token {
             contract_addr: deps.api.addr_make("reward0000").to_string(),
         },
-        staking_token: deps.api.addr_make("staking0000").to_string(),
+        staking_token: AssetInfo::Token {
+            contract_addr: deps.api.addr_make("staking0000").to_string(),
+        },
         distribution_schedule: vec![
             (
                 mock_env().block.time.seconds(),
@@ -203,7 +207,9 @@ fn test_unbond() {
         reward_token: AssetInfo::Token {
             contract_addr: deps.api.addr_make("reward0000").to_string(),
         },
-        staking_token: deps.api.addr_make("staking0000").to_string(),
+        staking_token: AssetInfo::Token {
+            contract_addr: deps.api.addr_make("staking0000").to_string(),
+        },
         distribution_schedule: vec![
             (12345, 12345 + 100, Uint128::from(1000000u128)),
             (12345 + 100, 12345 + 200, Uint128::from(10000000u128)),
@@ -265,7 +271,9 @@ fn test_compute_reward() {
         reward_token: AssetInfo::Token {
             contract_addr: deps.api.addr_make("reward0000").to_string(),
         },
-        staking_token: deps.api.addr_make("staking0000").to_string(),
+        staking_token: AssetInfo::Token {
+            contract_addr: deps.api.addr_make("staking0000").to_string(),
+        },
         distribution_schedule: vec![
             (
                 mock_env().block.time.seconds(),
@@ -388,7 +396,9 @@ fn test_withdraw() {
         reward_token: AssetInfo::Token {
             contract_addr: deps.api.addr_make("reward0000").to_string(),
         },
-        staking_token: deps.api.addr_make("staking0000").to_string(),
+        staking_token: AssetInfo::Token {
+            contract_addr: deps.api.addr_make("staking0000").to_string(),
+        },
         distribution_schedule: vec![
             (
                 mock_env().block.time.seconds(),
@@ -447,7 +457,9 @@ fn test_migrate_staking() {
         reward_token: AssetInfo::Token {
             contract_addr: deps.api.addr_make("reward0000").to_string(),
         },
-        staking_token: deps.api.addr_make("staking0000").to_string(),
+        staking_token: AssetInfo::Token {
+            contract_addr: deps.api.addr_make("staking0000").to_string(),
+        },
         distribution_schedule: vec![
             (
                 mock_env().block.time.seconds(),
@@ -570,7 +582,9 @@ fn test_update_config() {
         reward_token: AssetInfo::Token {
             contract_addr: deps.api.addr_make("reward0000").to_string(),
         },
-        staking_token: deps.api.addr_make("staking0000").to_string(),
+        staking_token: AssetInfo::Token {
+            contract_addr: deps.api.addr_make("staking0000").to_string(),
+        },
         distribution_schedule: vec![
             (
                 mock_env().block.time.seconds(),
@@ -1058,7 +1072,9 @@ fn test_instantiate_and_query_native_reward_token() {
     // Instantiate the contract with a native reward token (e.g., "inj")
     let msg = InstantiateMsg {
         reward_token: AssetInfo::NativeToken { denom: "inj".to_string() },
-        staking_token: deps.api.addr_make("staking0000").to_string(),
+        staking_token: AssetInfo::Token {
+            contract_addr: deps.api.addr_make("staking0000").to_string(),
+        },
         distribution_schedule: vec![
             (current_time, current_time + 100, Uint128::from(1000000u128)),
             (current_time + 100, current_time + 200, Uint128::from(10000000u128)),
@@ -1085,7 +1101,9 @@ fn test_withdraw_native_reward_token() {
     // Instantiate with a native reward token ("inj")
     let msg = InstantiateMsg {
         reward_token: AssetInfo::NativeToken { denom: "inj".to_string() },
-        staking_token: deps.api.addr_make("staking0000").to_string(),
+        staking_token: AssetInfo::Token {
+            contract_addr: deps.api.addr_make("staking0000").to_string(),
+        },
         distribution_schedule: vec![
             (current_time, current_time + 100, Uint128::from(1000000u128)),
             (current_time + 100, current_time + 200, Uint128::from(10000000u128)),
@@ -1122,4 +1140,139 @@ fn test_withdraw_native_reward_token() {
             amount: coins(1000000, "inj"),
         }))]
     );
+}
+
+#[test]
+fn test_bond_native()  {
+    let mut deps = mock_dependencies(&[]);
+
+    let instantiate_msg = InstantiateMsg {
+        reward_token: AssetInfo::Token {
+            contract_addr: deps.api.addr_make("reward0000").to_string(),
+        },
+        staking_token: AssetInfo::NativeToken {
+            denom: "uusd".to_string(),
+        },
+        distribution_schedule: vec![
+            (
+                mock_env().block.time.seconds(),
+                mock_env().block.time.seconds() + 100,
+                Uint128::from(1_000_000u128),
+            ),
+            (
+                mock_env().block.time.seconds() + 100,
+                mock_env().block.time.seconds() + 200,
+                Uint128::from(10_000_000u128),
+            ),
+        ],
+    };
+
+    let env = mock_env();
+    let info = message_info(&deps.api.addr_make("addr0000"), &[]);
+    let _res = instantiate(deps.as_mut(), env.clone(), info, instantiate_msg).unwrap();
+
+    // Simulate bonding by a user sending native funds.
+    let bond_amount = Uint128::from(100u128);
+    let bond_info = message_info(
+        &deps.api.addr_make("addr0000"),
+        &[Coin {
+            denom: "uusd".to_string(),
+            amount: bond_amount,
+        }],
+    );
+
+    // Use the new Bond message variant (for native bonding).
+    let bond_msg = ExecuteMsg::Bond { amount: bond_amount };
+
+    let res = execute(deps.as_mut(), env.clone(), bond_info, bond_msg).unwrap();
+    println!("Bond response: {:?}", res);
+
+    // Query staker info.
+    let staker_query = QueryMsg::StakerInfo {
+        staker: deps.api.addr_make("addr0000").to_string(),
+        block_time: None,
+    };
+    let staker_info_bin = query(deps.as_ref(), env.clone(), staker_query).unwrap();
+    let staker_info: StakerInfoResponse = from_json(&staker_info_bin).unwrap();
+
+    // The staker's bond amount should now equal the bond_amount.
+    assert_eq!(staker_info.bond_amount, bond_amount);
+
+    // Query global state.
+    let state_query = QueryMsg::State { block_time: None };
+    let state_bin = query(deps.as_ref(), env.clone(), state_query).unwrap();
+    let state: StateResponse = from_json(&state_bin).unwrap();
+
+    // The total bond amount in state should equal the bond_amount.
+    assert_eq!(state.total_bond_amount, bond_amount);
+
+   
+}
+
+#[test]
+fn test_unbond_native() {
+    let mut deps = mock_dependencies(&[]);
+
+    // Instantiate contract with a native staking token.
+    let instantiate_msg = InstantiateMsg {
+        reward_token: AssetInfo::Token {
+            contract_addr: deps.api.addr_make("reward0000").to_string(),
+        },
+        staking_token: AssetInfo::NativeToken {
+            denom: "uusd".to_string(),
+        },
+        distribution_schedule: vec![
+            (12345, 12345 + 100, Uint128::from(1_000_000u128)),
+            (12345 + 100, 12345 + 200, Uint128::from(10_000_000u128)),
+        ],
+    };
+
+    // Create an environment with contract address equal to MOCK_CONTRACT_ADDR.
+    let env = mock_env();
+    let info = message_info(&deps.api.addr_make("addr0000"), &[]);
+    let _inst_res = instantiate(deps.as_mut(), env.clone(), info, instantiate_msg).unwrap();
+
+    // Simulate bonding native tokens.
+    let bond_amount = Uint128::from(100u128);
+    // For native bonding, assume we have an ExecuteMsg::Bond variant.
+    let bond_msg = ExecuteMsg::Bond { amount: bond_amount };
+    // The user sends the native tokens in funds.
+    let bond_info = message_info(
+        &deps.api.addr_make("addr0000"),
+        &[Coin {
+            denom: "uusd".to_string(),
+            amount: bond_amount,
+        }],
+    );
+    let _bond_res = execute(deps.as_mut(), env.clone(), bond_info, bond_msg).unwrap();
+
+    // Try to unbond too many tokens: should fail.
+    let unbond_msg = ExecuteMsg::Unbond {
+        amount: Uint128::from(150u128),
+    };
+    let info = message_info(&deps.api.addr_make("addr0000"), &[]);
+    let res_err = execute(deps.as_mut(), env.clone(), info, unbond_msg).unwrap_err();
+    match res_err {
+        StdError::GenericErr { msg, .. } => {
+            assert_eq!(msg, "Cannot unbond more than bond amount");
+        }
+        _ => panic!("Expected generic error"),
+    };
+
+    // Normal unbond: unbond exactly 100 tokens.
+    let unbond_msg = ExecuteMsg::Unbond {
+        amount: Uint128::from(100u128),
+    };
+    let info = message_info(&deps.api.addr_make("addr0000"), &[]);
+    let res_unbond = execute(deps.as_mut(), env.clone(), info, unbond_msg).unwrap();
+
+    // For native staking tokens, the unbond operation should result in a BankMsg::Send
+    // that sends the unbonded amount back to the user.
+    let expected_msg = SubMsg::new(CosmosMsg::Bank(BankMsg::Send {
+        to_address: deps.api.addr_make("addr0000").to_string(),
+        amount: coins(100, "uusd"),
+    }));
+
+    assert_eq!(res_unbond.messages, vec![expected_msg]);
+
 }

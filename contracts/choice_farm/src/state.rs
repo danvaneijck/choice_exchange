@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 use cosmwasm_std::{CanonicalAddr, Decimal, StdResult, Storage, Uint128};
 use cw_storage_plus::{Item, Map};
 
-use choice::asset::{AssetInfo};
+use choice::asset::AssetInfo;
 
 
 /// Store the configuration under the key "config"
@@ -20,7 +20,7 @@ pub const STAKER_INFO: Map<&[u8], StakerInfo> = Map::new("reward");
 pub struct Config {
     pub owner: CanonicalAddr,
     pub reward_token: AssetInfo,
-    pub staking_token: CanonicalAddr,
+    pub staking_token: AssetInfo,
     pub distribution_schedule: Vec<(u64, u64, Uint128)>,
 }
 
