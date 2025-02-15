@@ -383,23 +383,23 @@ pub struct MockFeeHandler {
 
 impl HandlesFeeQuery for MockFeeHandler {
     fn handle(&self) -> SystemResult<ContractResult<Binary>> {
+        let (denom, amount) = self.fees.iter().next().ok_or(SystemError::InvalidRequest {
+            error: "No fee provided".to_string(),
+            request: Binary::default(),
+        }).unwrap();
+
         let response = TokenFactoryCreateDenomFeeResponse {
-            fee: vec![
-                Coin{
-                    denom: "inj".to_string(),
-                    amount: Uint128::from(1u128)
-                }
-            ]
+            fee: vec![Coin {
+                denom: denom.clone(),
+                amount: *amount,
+            }],
         };
-        let bin = match to_json_binary(&response) {
-            Ok(bin) => bin,
-            Err(e) => {
-                return SystemResult::Err(SystemError::InvalidRequest {
-                    error: format!("Serialization error: {}", e),
-                    request: Binary::default(),
-                })
-            }
-        };
+
+        let bin = to_json_binary(&response).map_err(|e| SystemError::InvalidRequest {
+            error: format!("Serialization error: {}", e),
+            request: Binary::default(),
+        }).unwrap();
+
         SystemResult::Ok(ContractResult::Ok(bin))
     }
 }

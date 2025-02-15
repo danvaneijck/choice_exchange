@@ -200,7 +200,7 @@ pub fn execute_create_pair(
             gas_limit: None,
             msg: CosmosMsg::Wasm(WasmMsg::Instantiate {
                 code_id: config.pair_code_id,
-                funds: info.funds,
+                funds: creation_fee,
                 admin: Some(env.contract.address.to_string()),
                 label: "pair".to_string(),
                 msg: to_json_binary(&PairInstantiateMsg {
