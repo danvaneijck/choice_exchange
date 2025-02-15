@@ -48,20 +48,20 @@ fn proper_initialization() {
         res.messages,
         vec![
             SubMsg {
-                id: 1, // 1
+                id: 0,
                 payload: Binary::default(),
                 gas_limit: None,
-                reply_on: ReplyOn::Success,
+                reply_on: ReplyOn::Never,
                 msg: create_new_denom_msg(
                     env.contract.address.to_string(),
                     "lp".to_string()
                 )
             },
             SubMsg {
-                id: 1 + 1, // 2
+                id: 0,
                 payload: Binary::default(),
                 gas_limit: None,
-                reply_on: ReplyOn::Success,
+                reply_on: ReplyOn::Never,
                 msg: create_set_token_metadata_msg(
                     format!("factory/{}/{}", env.contract.address, "lp"),
                     "choice liquidity token".to_string(),

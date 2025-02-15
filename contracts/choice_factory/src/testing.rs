@@ -155,7 +155,7 @@ fn create_pair() {
         .with_choice_factory(&[], &[("uusd".to_string(), 6u8)]);
 
     deps.querier.with_token_factory_denom_create_fee(&[
-        (&"inj", Uint128::from(1u128))
+        (&"inj", Uint128::from(1_000_000_000_000_000_000u128))
     ]);
     
     let assets = [
@@ -181,7 +181,7 @@ fn create_pair() {
     let info = message_info(&deps.api.addr_make("addr0000"), &vec![
         Coin{
             denom: "inj".to_string(),
-            amount: Uint128::from(1u128)
+            amount: Uint128::from(1_000_000_000_000_000_000u128)
         }
     ]);
     let res = execute(deps.as_mut(), env, info, msg).unwrap();
@@ -221,7 +221,7 @@ fn create_pair() {
                 funds: vec![
                     Coin{
                         denom: "inj".to_string(),
-                        amount: Uint128::from(1u128)
+                        amount: Uint128::from(1_000_000_000_000_000_000u128)
                     }
                 ],
                 label: "pair".to_string(),
@@ -266,7 +266,7 @@ fn create_pair_native_token_and_ibc_token() {
     );
 
     deps.querier.with_token_factory_denom_create_fee(&[
-        (&"inj", Uint128::from(1u128))
+        (&"inj", Uint128::from(1_000_000_000_000_000_000u128))
     ]);
 
     let assets = [
@@ -292,14 +292,16 @@ fn create_pair_native_token_and_ibc_token() {
     let info = message_info(&mock_api.addr_make("addr0000"), &vec![
         Coin{
             denom: "inj".to_string(),
-            amount: Uint128::from(1u128)
+            amount: Uint128::from(1_000_000_000_000_000_000u128)
         }
     ]);
     let res = execute(deps.as_mut(), env, info, msg).unwrap();
+    
     assert_eq!(
         res.attributes,
         vec![attr("action", "create_pair"), attr("pair", "uusd-ibc/HASH")]
     );
+
     assert_eq!(
         res.messages,
         vec![SubMsg {
@@ -327,14 +329,14 @@ fn create_pair_native_token_and_ibc_token() {
                 funds: vec![
                     Coin{
                         denom: "inj".to_string(),
-                        amount: Uint128::from(1u128)
+                        amount: Uint128::from(1_000_000_000_000_000_000u128)
                     }
                 ],
                 label: "pair".to_string(),
                 admin: Some(MOCK_CONTRACT_ADDR.to_string()),
             }
             .into()
-        },]
+        }]
     );
 
     let raw_assets = [

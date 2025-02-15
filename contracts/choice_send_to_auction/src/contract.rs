@@ -187,7 +187,7 @@ pub fn send_to_burn_auction(
         let subaccount_id = checked_address_to_subaccount_id(&env.contract.address, 1);
         let deposit_msg = CosmosMsg::Custom(InjectiveMsgWrapper {
             route: InjectiveRoute::Exchange,
-            msg_data: InjectiveMsg::Deposit {
+            msg_data: InjectiveMsg::Deposit { 
                 sender: env.contract.address.clone(),
                 subaccount_id: subaccount_id.clone(),
                 amount: Coin {

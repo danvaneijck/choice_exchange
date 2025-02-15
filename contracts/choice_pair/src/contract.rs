@@ -6,8 +6,8 @@ use cosmwasm_std::entry_point;
 
 use cosmwasm_std::{
     coins, from_json, to_json_binary, Addr, BankMsg, Binary, CosmosMsg, Decimal,
-    Decimal256, DepsMut, Deps, Env, MessageInfo, ReplyOn, Response, StdResult,
-    SubMsg, Uint128, Uint256, WasmMsg, Coin
+    Decimal256, DepsMut, Deps, Env, MessageInfo, Response, StdResult,
+    Uint128, Uint256, WasmMsg, Coin
 };
 
 use cw2::set_contract_version;
@@ -34,8 +34,6 @@ use injective_cosmwasm::query::InjectiveQueryWrapper;
 // version info for migration info
 const CONTRACT_NAME: &str = "crates.io:choice-pair";
 const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
-
-const INSTANTIATE_REPLY_ID: u64 = 1;
 
 /// Commission rate == 0.3%
 const COMMISSION_RATE: u64 = 3;
@@ -77,26 +75,10 @@ pub fn instantiate(
         6,
     );
 
-    let submsg_create = SubMsg {
-        msg: create_msg,
-        gas_limit: None,
-        id: INSTANTIATE_REPLY_ID,
-        reply_on: ReplyOn::Success,
-        payload: Binary::default()
-    };
-
-    let submsg_set_metadata = SubMsg {
-        msg: metadata_msg,
-        gas_limit: None,
-        id: INSTANTIATE_REPLY_ID + 1,
-        reply_on: ReplyOn::Success,
-        payload: Binary::default()
-    };
-
     Ok(Response::new()
-        .add_submessage(submsg_create)
-        .add_submessage(submsg_set_metadata)
-        .add_attribute("lp_denom", lp_denom))
+        .add_messages(vec![create_msg, metadata_msg])
+        .add_attribute("lp_denom", lp_denom)
+    )
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
