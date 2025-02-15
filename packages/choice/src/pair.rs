@@ -37,6 +37,13 @@ pub enum ExecuteMsg {
         to: Option<String>,
         deadline: Option<u64>,
     },
+
+    // Withdraw liquidity 
+    WithdrawLiquidity {
+        amount: Uint128,
+        min_assets: Option<[Asset; 2]>,
+        deadline: Option<u64>,
+    },
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
@@ -47,10 +54,6 @@ pub enum Cw20HookMsg {
         belief_price: Option<Decimal>,
         max_spread: Option<Decimal>,
         to: Option<String>,
-        deadline: Option<u64>,
-    },
-    WithdrawLiquidity {
-        min_assets: Option<[Asset; 2]>,
         deadline: Option<u64>,
     },
 }

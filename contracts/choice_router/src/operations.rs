@@ -10,17 +10,22 @@ use choice::asset::{Asset, AssetInfo, PairInfo};
 use choice::pair::ExecuteMsg as PairExecuteMsg;
 use choice::querier::{query_balance, query_pair_info, query_token_balance};
 use choice::router::SwapOperation;
+use injective_cosmwasm::query::InjectiveQueryWrapper;
 
 /// Execute swap operation
 /// swap all offer asset to ask asset
 pub fn execute_swap_operation(
-    deps: DepsMut,
+    deps: DepsMut<InjectiveQueryWrapper>,
     env: Env,
     info: MessageInfo,
     operation: SwapOperation,
     to: Option<String>,
     deadline: Option<u64>,
 ) -> StdResult<Response> {
+
+    println!("env.contract.address: {:?}", env.contract.address);
+    println!("info.sender: {:?}", info.sender);
+
     if env.contract.address != info.sender {
         return Err(StdError::generic_err("unauthorized"));
     }
@@ -68,7 +73,7 @@ pub fn execute_swap_operation(
 }
 
 pub fn asset_into_swap_msg(
-    _deps: Deps,
+    _deps: Deps<InjectiveQueryWrapper>,
     pair_contract: Addr,
     offer_asset: Asset,
     max_spread: Option<Decimal>,

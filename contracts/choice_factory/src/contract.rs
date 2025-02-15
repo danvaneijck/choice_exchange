@@ -2,7 +2,7 @@
 use cosmwasm_std::entry_point;
 use cosmwasm_std::{
     coin, to_json_binary, Addr, Binary, Coin, CosmosMsg, Deps, DepsMut, Env, MessageInfo, Reply,
-    ReplyOn, Response, StdError, StdResult, SubMsg, WasmMsg,
+    ReplyOn, Response, StdError, StdResult, SubMsg, WasmMsg, SubMsgResult
 };
 use cw2::set_contract_version;
 use cw20::Cw20ExecuteMsg;
@@ -25,6 +25,8 @@ use choice::pair::{
     MigrateMsg as PairMigrateMsg,
 };
 use choice::util::migrate_version;
+use hex;
+use injective_cosmwasm::query::InjectiveQueryWrapper;
 
 // version info for migration info
 const CONTRACT_NAME: &str = "crates.io:choice-factory";
@@ -34,7 +36,7 @@ const CREATE_PAIR_REPLY_ID: u64 = 1;
 
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn instantiate(
-    deps: DepsMut,
+    deps: DepsMut<InjectiveQueryWrapper>,
     _env: Env,
     info: MessageInfo,
     msg: InstantiateMsg,
@@ -56,7 +58,7 @@ pub fn instantiate(
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
-pub fn execute(deps: DepsMut, env: Env, info: MessageInfo, msg: ExecuteMsg) -> StdResult<Response> {
+pub fn execute(deps: DepsMut<InjectiveQueryWrapper>, env: Env, info: MessageInfo, msg: ExecuteMsg) -> StdResult<Response> {
     match msg {
         ExecuteMsg::UpdateConfig {
             owner,
@@ -77,7 +79,7 @@ pub fn execute(deps: DepsMut, env: Env, info: MessageInfo, msg: ExecuteMsg) -> S
 
 // Only owner can execute it
 pub fn execute_update_config(
-    deps: DepsMut,
+    deps: DepsMut<InjectiveQueryWrapper>,
     _env: Env,
     info: MessageInfo,
     owner: Option<String>,
@@ -123,12 +125,14 @@ pub fn execute_update_config(
 
 // Anyone can execute it to create swap pair
 pub fn execute_create_pair(
-    deps: DepsMut,
+    deps: DepsMut<InjectiveQueryWrapper>,
     env: Env,
     info: MessageInfo,
     assets: [Asset; 2],
 ) -> StdResult<Response> {
     let config: Config = CONFIG.load(deps.storage)?;
+
+    println!("config: {:?}", config);
 
     if assets[0].info == assets[1].info {
         return Err(StdError::generic_err("same asset"));
@@ -142,6 +146,9 @@ pub fn execute_create_pair(
         Err(_) => return Err(StdError::generic_err("asset1 is invalid")),
     };
 
+    println!("asset_1_decimal: {:?}", asset_1_decimal);
+
+
     let asset_2_decimal = match assets[1]
         .info
         .query_decimals(env.contract.address.clone(), &deps.querier)
@@ -150,7 +157,14 @@ pub fn execute_create_pair(
         Err(_) => return Err(StdError::generic_err("asset2 is invalid")),
     };
 
+    println!("asset_2_decimal: {:?}", asset_2_decimal);
+
+    println!("assets: {:?}", assets);
+
     let raw_assets = [assets[0].to_raw(deps.api)?, assets[1].to_raw(deps.api)?];
+
+    println!("raw assets: {:?}", raw_assets);
+
 
     let asset_infos = [assets[0].info.clone(), assets[1].info.clone()];
     let raw_infos = [
@@ -182,6 +196,7 @@ pub fn execute_create_pair(
         ])
         .add_submessage(SubMsg {
             id: CREATE_PAIR_REPLY_ID,
+            payload: Binary::default(),
             gas_limit: None,
             msg: CosmosMsg::Wasm(WasmMsg::Instantiate {
                 code_id: config.pair_code_id,
@@ -201,7 +216,7 @@ pub fn execute_create_pair(
 }
 
 pub fn execute_add_native_token_decimals(
-    deps: DepsMut,
+    deps: DepsMut<InjectiveQueryWrapper>,
     env: Env,
     info: MessageInfo,
     denom: String,
@@ -231,7 +246,7 @@ pub fn execute_add_native_token_decimals(
 }
 
 pub fn execute_migrate_pair(
-    deps: DepsMut,
+    deps: DepsMut<InjectiveQueryWrapper>,
     _env: Env,
     info: MessageInfo,
     contract: String,
@@ -257,35 +272,62 @@ pub fn execute_migrate_pair(
 
 /// This just stores the result for future query
 #[cfg_attr(not(feature = "library"), entry_point)]
-pub fn reply(deps: DepsMut, env: Env, msg: Reply) -> StdResult<Response> {
+pub fn reply(deps: DepsMut<InjectiveQueryWrapper>, env: Env, msg: Reply) -> StdResult<Response> {
     if msg.id != CREATE_PAIR_REPLY_ID {
         return Err(StdError::generic_err("invalid reply msg"));
     }
 
     let tmp_pair_info = TMP_PAIR_INFO.load(deps.storage)?;
 
-    let res: MsgInstantiateContractResponse =
-        Message::parse_from_bytes(msg.result.unwrap().data.unwrap().as_slice()).map_err(|_| {
-            StdError::parse_err("MsgInstantiateContractResponse", "failed to parse data")
-        })?;
+    let sub_msg_response = match msg.result {
+        SubMsgResult::Ok(resp) => resp,
+        SubMsgResult::Err(err) => {
+            return Err(StdError::generic_err(format!("Submessage error: {}", err)))
+        }
+    };
+
+    // Use msg_responses if available, otherwise fall back to data
+    let data_bytes: Binary = if !sub_msg_response.msg_responses.is_empty() {
+        sub_msg_response.msg_responses[0].value.clone()
+    } else {
+        return Err(StdError::generic_err("no data or msg_responses found in submessage response"));
+    };
+
+    println!("Raw data_bytes: {:?}", data_bytes);
+    println!("data_bytes (hex): {}", hex::encode(&data_bytes));
+
+    let res: MsgInstantiateContractResponse = Message::parse_from_bytes(data_bytes.as_slice())
+        .map_err(|_| StdError::parse_err("MsgInstantiateContractResponse", "failed to parse data"))?;
 
     let pair_contract = res.get_address();
+    println!("Address: {:?}", pair_contract);
     let pair_info = query_pair_info_from_pair(&deps.querier, Addr::unchecked(pair_contract))?;
+
+    println!("pair_info: {:?}", pair_info);
+
 
     let raw_infos = [
         tmp_pair_info.assets[0].info.clone(),
         tmp_pair_info.assets[1].info.clone(),
     ];
 
+    println!("raw_infos: {:?}", raw_infos);
+
+
     let factory_config: Config = CONFIG.load(deps.storage)?;
     let burn_address = factory_config.burn_address.clone();
     let fee_wallet_address = factory_config.fee_wallet_address.clone();
+
+    println!("factory_config: {:?}", factory_config);
+    println!("burn_address: {:?}", burn_address);
+    println!("fee_wallet_address: {:?}", fee_wallet_address);
+
 
     PAIRS.save(
         deps.storage,
         &tmp_pair_info.pair_key,
         &PairInfoRaw {
-            liquidity_token: deps.api.addr_canonicalize(&pair_info.liquidity_token)?,
+            liquidity_token: pair_info.liquidity_token.clone(),
             contract_addr: deps.api.addr_canonicalize(pair_contract)?,
             asset_infos: raw_infos,
             asset_decimals: tmp_pair_info.asset_decimals,
@@ -293,6 +335,8 @@ pub fn reply(deps: DepsMut, env: Env, msg: Reply) -> StdResult<Response> {
             fee_wallet_address, // Add fee wallet address
         },
     )?;
+
+    println!("saved");
 
     let mut messages: Vec<CosmosMsg> = vec![];
     if !tmp_pair_info.assets[0].amount.is_zero() || !tmp_pair_info.assets[1].amount.is_zero() {
@@ -349,7 +393,7 @@ pub fn reply(deps: DepsMut, env: Env, msg: Reply) -> StdResult<Response> {
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
-pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
+pub fn query(deps: Deps<InjectiveQueryWrapper>, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
     match msg {
         QueryMsg::Config {} => to_json_binary(&query_config(deps)?),
         QueryMsg::Pair { asset_infos } => to_json_binary(&query_pair(deps, asset_infos)?),
@@ -362,7 +406,7 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
     }
 }
 
-pub fn query_config(deps: Deps) -> StdResult<ConfigResponse> {
+pub fn query_config(deps: Deps<InjectiveQueryWrapper>) -> StdResult<ConfigResponse> {
     let state: Config = CONFIG.load(deps.storage)?;
     let resp = ConfigResponse {
         owner: deps.api.addr_humanize(&state.owner)?.to_string(),
@@ -376,7 +420,7 @@ pub fn query_config(deps: Deps) -> StdResult<ConfigResponse> {
     Ok(resp)
 }
 
-pub fn query_pair(deps: Deps, asset_infos: [AssetInfo; 2]) -> StdResult<PairInfo> {
+pub fn query_pair(deps: Deps<InjectiveQueryWrapper>, asset_infos: [AssetInfo; 2]) -> StdResult<PairInfo> {
     let pair_key = pair_key(&[
         asset_infos[0].to_raw(deps.api)?,
         asset_infos[1].to_raw(deps.api)?,
@@ -386,7 +430,7 @@ pub fn query_pair(deps: Deps, asset_infos: [AssetInfo; 2]) -> StdResult<PairInfo
 }
 
 pub fn query_pairs(
-    deps: Deps,
+    deps: Deps<InjectiveQueryWrapper>,
     start_after: Option<[AssetInfo; 2]>,
     limit: Option<u32>,
 ) -> StdResult<PairsResponse> {
@@ -406,7 +450,7 @@ pub fn query_pairs(
 }
 
 pub fn query_native_token_decimal(
-    deps: Deps,
+    deps: Deps<InjectiveQueryWrapper>,
     denom: String,
 ) -> StdResult<NativeTokenDecimalsResponse> {
     let decimals = ALLOW_NATIVE_TOKENS.load(deps.storage, denom.as_bytes())?;
@@ -416,7 +460,7 @@ pub fn query_native_token_decimal(
 
 const TARGET_CONTRACT_VERSION: &str = "0.1.0";
 #[cfg_attr(not(feature = "library"), entry_point)]
-pub fn migrate(deps: DepsMut, _env: Env, _msg: MigrateMsg) -> StdResult<Response> {
+pub fn migrate(deps: DepsMut<InjectiveQueryWrapper>, _env: Env, _msg: MigrateMsg) -> StdResult<Response> {
     migrate_version(
         deps,
         TARGET_CONTRACT_VERSION,

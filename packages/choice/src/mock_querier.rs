@@ -1,8 +1,9 @@
 use cosmwasm_std::testing::{MockApi, MockQuerier, MockStorage, MOCK_CONTRACT_ADDR};
 use cosmwasm_std::{
-    from_json, to_json_binary, Coin, ContractResult, Empty, OwnedDeps, Querier,
-    QuerierResult, QueryRequest, SystemError, SystemResult, Uint128, WasmQuery,
+    from_json, to_json_binary, Binary, Coin, ContractResult, Empty, OwnedDeps, Querier, QuerierResult, QueryRequest, SystemError, SystemResult, Uint128, WasmQuery
 };
+use injective_cosmwasm::{HandlesDenomSupplyQuery, InjectiveQuery, InjectiveRoute};
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::marker::PhantomData;
 use std::panic;
@@ -12,6 +13,8 @@ use crate::factory::{NativeTokenDecimalsResponse, QueryMsg as FactoryQueryMsg};
 use crate::pair::QueryMsg as PairQueryMsg;
 use crate::pair::{ReverseSimulationResponse, SimulationResponse};
 use cw20::{BalanceResponse as Cw20BalanceResponse, Cw20QueryMsg, TokenInfoResponse};
+use injective_cosmwasm::query::{InjectiveQueryWrapper};
+use injective_cosmwasm::WasmMockQuerier as InjWasmMockQuerier;
 
 use std::iter::FromIterator;
 
@@ -19,7 +22,7 @@ use std::iter::FromIterator;
 /// this uses our CustomQuerier.
 pub fn mock_dependencies(
     contract_balance: &[Coin],
-) -> OwnedDeps<MockStorage, MockApi, WasmMockQuerier> {
+) -> OwnedDeps<MockStorage, MockApi, WasmMockQuerier, InjectiveQueryWrapper> {
     let custom_querier: WasmMockQuerier =
         WasmMockQuerier::new(MockQuerier::new(&[(MOCK_CONTRACT_ADDR, contract_balance)]));
 
@@ -35,6 +38,8 @@ pub struct WasmMockQuerier {
     base: MockQuerier,
     token_querier: TokenQuerier,
     choice_factory_querier: ChoiceFactoryQuerier,
+    token_factory_denom_total_supply_handler: Option<Box<dyn HandlesDenomSupplyQuery>>,
+    inj: InjWasmMockQuerier
 }
 
 #[derive(Clone, Default)]
@@ -105,7 +110,7 @@ pub(crate) fn native_token_decimals_to_map(
 impl Querier for WasmMockQuerier {
     fn raw_query(&self, bin_request: &[u8]) -> QuerierResult {
         // MockQuerier doesn't support Custom, so we ignore it completely here
-        let request: QueryRequest<Empty> = match from_json(bin_request) {
+        let request: QueryRequest<InjectiveQueryWrapper> = match from_json(bin_request) {
             Ok(v) => v,
             Err(e) => {
                 return SystemResult::Err(SystemError::InvalidRequest {
@@ -119,7 +124,9 @@ impl Querier for WasmMockQuerier {
 }
 
 impl WasmMockQuerier {
-    pub fn handle_query(&self, request: &QueryRequest<Empty>) -> QuerierResult {
+    pub fn handle_query(&self, request: &QueryRequest<InjectiveQueryWrapper>) -> QuerierResult {
+        let deps = mock_dependencies(&[]);
+        // println!("request: {:?}", request);
         match &request {
             QueryRequest::Wasm(WasmQuery::Smart { contract_addr, msg }) => match from_json(msg) {
                 Ok(FactoryQueryMsg::Pair { asset_infos }) => {
@@ -158,21 +165,28 @@ impl WasmMockQuerier {
                 }
                 _ => match from_json(msg) {
                     Ok(PairQueryMsg::Pair {}) => {
-                        SystemResult::Ok(ContractResult::from(to_json_binary(&PairInfo {
-                            asset_infos: [
-                                AssetInfo::NativeToken {
-                                    denom: "uluna".to_string(),
-                                },
-                                AssetInfo::NativeToken {
-                                    denom: "uluna".to_string(),
-                                },
-                            ],
-                            asset_decimals: [6u8, 6u8],
-                            contract_addr: "pair0000".to_string(),
-                            liquidity_token: "liquidity0000".to_string(),
-                            burn_address: "burnaddr0000".to_string(), // New field
-                            fee_wallet_address: "feeaddr0000".to_string(), // New field
-                        })))
+                        let pair_addr = deps.api.addr_make("pair0000").to_string();
+                        let liquidity_token = deps.api.addr_make("liquidity0000").to_string();
+                        let burn_address = deps.api.addr_make("burnaddr0000").to_string();
+                        let fee_wallet_address = deps.api.addr_make("feeaddr0000").to_string();
+                        
+                        SystemResult::Ok(ContractResult::from(
+                            to_json_binary(&PairInfo {
+                                asset_infos: [
+                                    AssetInfo::NativeToken {
+                                        denom: "inj".to_string(),
+                                    },
+                                    AssetInfo::NativeToken {
+                                        denom: "inj".to_string(),
+                                    },
+                                ],
+                                asset_decimals: [6u8, 6u8],
+                                contract_addr: pair_addr,
+                                liquidity_token,
+                                burn_address,
+                                fee_wallet_address,
+                            })
+                        ))
                     }
                     Ok(PairQueryMsg::Simulation { offer_asset }) => {
                         SystemResult::Ok(ContractResult::from(to_json_binary(&SimulationResponse {
@@ -256,7 +270,92 @@ impl WasmMockQuerier {
                     },
                 },
             },
-            _ => self.base.handle_query(request),
+            QueryRequest::Custom(custom) => {
+                match custom {
+                    // Match on our token factory total supply query variant
+                    InjectiveQueryWrapper { 
+                        route: InjectiveRoute::Tokenfactory, 
+                        query_data: InjectiveQuery::TokenFactoryDenomTotalSupply { denom }
+                    } => {
+                        if let Some(handler) = &self.token_factory_denom_total_supply_handler {
+                            // Call our handler to get the total supply
+                            handler.handle(denom.clone())
+                        } else {
+                            SystemResult::Err(SystemError::UnsupportedRequest {
+                                kind: "TokenFactoryDenomTotalSupply".to_string(),
+                            })
+                        }
+                    },
+                    // Fallback: if it's a Custom query that we don't handle specially, try the base querier.
+                    _ => self.inj.handle_query(request),
+                }
+            },
+            _ => {
+                // Convert the custom query into the default type by round-tripping through binary.
+                let bin = match to_json_binary(request) {
+                    Ok(b) => b,
+                    Err(e) => {
+                        return SystemResult::Err(SystemError::InvalidRequest {
+                            error: format!("Failed to serialize custom query: {}", e),
+                            request: Binary::default(),
+                        })
+                    }
+                };
+                let req_empty: QueryRequest<Empty> = match from_json(&bin) {
+                    Ok(r) => r,
+                    Err(e) => {
+                        return SystemResult::Err(SystemError::InvalidRequest {
+                            error: format!("Failed to deserialize query into Empty: {}", e),
+                            request: bin.clone(),
+                        })
+                    }
+                };
+                self.base.handle_query(&req_empty)
+            }
+        }
+    }
+}
+
+// Define a response type that matches what the token factory returns.
+#[derive(Serialize, Deserialize, Clone, PartialEq, Debug)]
+pub struct TokenFactoryDenomSupplyResponse {
+    pub total_supply: Uint128,
+}
+
+// Our mock handler stores a mapping of denom -> total_supply.
+#[derive(Clone, Default)]
+pub struct MockDenomSupplyHandler {
+    pub supplies: HashMap<String, Uint128>,
+}
+
+impl HandlesDenomSupplyQuery for MockDenomSupplyHandler {
+    fn handle(&self, denom: String) -> SystemResult<ContractResult<Binary>> {
+        match self.supplies.get(&denom) {
+            Some(total_supply) => {
+                // Here, you may have a response type from Injective token factory,
+                // for example:
+                #[derive(Serialize, Deserialize, Clone, Debug)]
+                pub struct TokenFactoryDenomSupplyResponse {
+                    pub total_supply: Uint128,
+                }
+                let response = TokenFactoryDenomSupplyResponse {
+                    total_supply: *total_supply,
+                };
+                let bin = match to_json_binary(&response) {
+                    Ok(bin) => bin,
+                    Err(e) => {
+                        return SystemResult::Err(SystemError::InvalidRequest {
+                            error: format!("Serialization error: {}", e),
+                            request: Binary::default(),
+                        })
+                    }
+                };
+                SystemResult::Ok(ContractResult::Ok(bin))
+            },
+            None => SystemResult::Err(SystemError::InvalidRequest {
+                error: format!("No supply info for denom: {}", denom),
+                request: Binary::default(),
+            }),
         }
     }
 }
@@ -267,6 +366,8 @@ impl WasmMockQuerier {
             base,
             token_querier: TokenQuerier::default(),
             choice_factory_querier: ChoiceFactoryQuerier::default(),
+            token_factory_denom_total_supply_handler: None,
+            inj: InjWasmMockQuerier::default()
         }
     }
 
@@ -286,8 +387,18 @@ impl WasmMockQuerier {
 
     pub fn with_balance(&mut self, balances: &[(&String, Vec<Coin>)]) {
         for (addr, balance) in balances {
-            self.base.update_balance(addr.to_string(), balance.clone());
+            self.base.bank.update_balance(addr.to_string(), balance.clone());
         }
+    }
+
+    pub fn with_token_factory_denom_supply(&mut self, supplies: &[(&str, Uint128)]) {
+        let mut supply_map = HashMap::new();
+        for (denom, supply) in supplies.iter() {
+            supply_map.insert(denom.to_string(), *supply);
+        }
+        self.token_factory_denom_total_supply_handler = Some(Box::new(MockDenomSupplyHandler {
+            supplies: supply_map,
+        }));
     }
 }
 
@@ -303,8 +414,8 @@ mod mock_exception {
         assert_eq!(
             deps.querier.raw_query(&[]),
             SystemResult::Err(SystemError::InvalidRequest {
-                error: "Parsing query request: Error parsing into type cosmwasm_std::query::QueryRequest<cosmwasm_std::results::empty::Empty>: EOF while parsing a JSON value.".to_string(),
-                request: Binary(vec![])
+                error: "Parsing query request: Error parsing into type cosmwasm_std::query::QueryRequest<injective_cosmwasm::query::InjectiveQueryWrapper>: EOF while parsing a JSON value.".to_string(),
+                request: Binary::new(vec![])
             })
         );
     }
@@ -316,7 +427,7 @@ mod mock_exception {
         let msg = to_json_binary(&FactoryQueryMsg::Pair {
             asset_infos: [
                 AssetInfo::NativeToken {
-                    denom: "uluna".to_string(),
+                    denom: "inj".to_string(),
                 },
                 AssetInfo::NativeToken {
                     denom: "ulunc".to_string(),

@@ -12,9 +12,9 @@ It creates liquidity token contract as init response, and execute init hook to r
 {
     /// Asset infos
     pub asset_infos: [AssetInfo; 2],
-    /// Token code ID for liqudity token creation
+    /// Token code ID for liquidity token creation
     pub token_code_id: u64,
-    /// Hook for post initalization
+    /// Hook for post initialization
     pub init_hook: Option<InitHook>,
 }
 ```
@@ -27,11 +27,11 @@ Whenever liquidity is deposited into a pool, special tokens known as liquidity t
 
 When providing liquidity from a smart contract, tokens deposited into a pool at a rate different from the current oracle price will be returned to users.
 
-> Note before executing the `provide_liqudity` operation, a user must allow the contract to use the liquidity amount of asset in the token contract.
+> Note before executing the `provide_liquidity` operation, a user must allow the contract to use the liquidity amount of asset in the token contract.
 
 #### Receiver
 
-If a user specifies the `receiver` at `provide_liqudity` msg, sends LP token to receiver. The default value is sender.
+If a user specifies the `receiver` at `provide_liquidity` msg, sends LP token to receiver. The default value is sender.
 
 #### Min Assets
 
@@ -60,7 +60,7 @@ A `deadline` sets a time after which a transaction can no longer be executed. Th
         {
           "info": {
             "native_token": {
-              "denom": "uluna"
+              "denom": "inj"
             }
           },
           "amount": "1000000"
@@ -88,7 +88,7 @@ A `deadline` sets a time after which a transaction can no longer be executed. Th
         {
           "info": {
             "native_token": {
-              "denom": "uluna"
+              "denom": "inj"
             }
           },
           "amount": "1000000"

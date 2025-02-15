@@ -51,7 +51,7 @@ In order to create pairs with native tokens, including IBC tokens, they must fir
       {
         "info": {
           "native_token": {
-            "denom": "uluna"
+            "denom": "inj"
           }
         },
         "amount": "0"
@@ -69,7 +69,7 @@ The contract will create a new pair using the provided token information if the 
 ```json
 {
   "add_native_token_decimals": {
-    "denom": "uluna",
+    "denom": "inj",
     "decimals": 6
   }
 }
@@ -109,7 +109,7 @@ The contract will create a new pair using the provided token information if the 
       },
       {
         "native_token": {
-          "denom": "uluna"
+          "denom": "inj"
         }
       }
     ]
@@ -130,7 +130,7 @@ The contract will create a new pair using the provided token information if the 
       },
       {
         "native_token": {
-          "denom": "uluna"
+          "denom": "inj"
         }
       }
     ],
@@ -143,7 +143,7 @@ The contract will create a new pair using the provided token information if the 
 ```json
 {
   "native_token_decimals": {
-    "denom": "uluna"
+    "denom": "inj"
   }
 }
 ```
