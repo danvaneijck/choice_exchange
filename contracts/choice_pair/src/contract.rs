@@ -48,7 +48,7 @@ pub fn instantiate(
     env: Env,
     _info: MessageInfo,
     msg: InstantiateMsg,
-) -> StdResult<Response<CosmosMsg<InjectiveMsgWrapper>>>  {
+) -> StdResult<Response<InjectiveMsgWrapper>>  {
     set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
     
     let subdenom = "lp".to_string();
@@ -78,7 +78,7 @@ pub fn instantiate(
     );
 
     let submsg_create = SubMsg {
-        msg: cosmwasm_std::CosmosMsg::Custom(create_msg),
+        msg: create_msg,
         gas_limit: None,
         id: INSTANTIATE_REPLY_ID,
         reply_on: ReplyOn::Success,
@@ -86,7 +86,7 @@ pub fn instantiate(
     };
 
     let submsg_set_metadata = SubMsg {
-        msg: cosmwasm_std::CosmosMsg::Custom(metadata_msg),
+        msg: metadata_msg,
         gas_limit: None,
         id: INSTANTIATE_REPLY_ID + 1,
         reply_on: ReplyOn::Success,

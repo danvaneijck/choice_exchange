@@ -52,22 +52,22 @@ fn proper_initialization() {
                 payload: Binary::default(),
                 gas_limit: None,
                 reply_on: ReplyOn::Success,
-                msg: CosmosMsg::Custom(create_new_denom_msg(
+                msg: create_new_denom_msg(
                     env.contract.address.to_string(),
                     "lp".to_string()
-                ))
+                )
             },
             SubMsg {
                 id: 1 + 1, // 2
                 payload: Binary::default(),
                 gas_limit: None,
                 reply_on: ReplyOn::Success,
-                msg: CosmosMsg::Custom(create_set_token_metadata_msg(
+                msg: create_set_token_metadata_msg(
                     format!("factory/{}/{}", env.contract.address, "lp"),
                     "choice liquidity token".to_string(),
                     "uLP".to_string(),
                     6,
-                ))
+                )
             }
         ]
     );
