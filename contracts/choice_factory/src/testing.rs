@@ -1,4 +1,4 @@
-use crate::contract::{execute, instantiate, query, reply};
+use crate::contract::{execute, execute_add_native_token_decimals, instantiate, query, reply};
 use choice::mock_querier::{mock_dependencies, WasmMockQuerier};
 use injective_cosmwasm::InjectiveQueryWrapper;
 
@@ -936,4 +936,76 @@ fn failed_migrate_pair_with_no_admin() {
         execute(deps.as_mut(), mock_env(), info, msg),
         Err(StdError::generic_err("unauthorized")),
     );
+}
+
+#[test]
+fn test_execute_add_native_token_decimals_factory() {
+
+
+    // Set up dependencies with a bank balance for the factory token denom.
+    // We want the bank to have a nonzero balance for the denom "factory/cosmwasm1owneraddr/lp"
+    let mut deps = mock_dependencies(&[coin (1000u128 ,format!("factory/{}/{}", MOCK_CONTRACT_ADDR, "lp"))]);
+
+    CONFIG
+        .save(
+            &mut deps.storage,
+            &Config {
+                owner: deps.api.addr_canonicalize(&deps.api.addr_make("owner0000").to_string()).unwrap(),
+                token_code_id: 123u64,
+                pair_code_id: 321u64,
+                burn_address: deps.api.addr_canonicalize(&deps.api.addr_make("burnaddr0000").to_string()).unwrap(),
+                fee_wallet_address: deps.api.addr_canonicalize(&deps.api.addr_make("feeaddr0000").to_string()).unwrap(),
+            },
+        )
+        .unwrap();
+
+    // We'll test with a factory denom.
+    let valid_denom = format!("factory/{}/{}", MOCK_CONTRACT_ADDR, "lp");
+    let decimals = 6u8;
+
+    // Create an environment where the contract address is MOCK_CONTRACT_ADDR,
+    // so that bank queries will return the correct balance.
+    let env = mock_env();
+
+    // Test case 1: Authorized sender (matches owner in denom)
+    let info = message_info(&deps.api.addr_validate(MOCK_CONTRACT_ADDR).unwrap(), &[]);
+    let res = execute_add_native_token_decimals(
+        deps.as_mut(),
+        env.clone(),
+        info.clone(),
+        valid_denom.clone(),
+        decimals,
+
+    ).unwrap();
+    println!("Response attributes: {:?}", res.attributes);
+    // Check that the response has the expected attributes.
+    assert!(res
+        .attributes
+        .iter()
+        .any(|attr| attr.key == "action" && attr.value == "add_allow_native_token"));
+    assert!(res
+        .attributes
+        .iter()
+        .any(|attr| attr.key == "denom" && attr.value == valid_denom));
+    assert!(res
+        .attributes
+        .iter()
+        .any(|attr| attr.key == "decimals" && &attr.value == &decimals.to_string()));
+
+    // Test case 2: Unauthorized sender (does not match owner in denom)
+    let bad_info = message_info(&deps.api.addr_make("cosmwasm1otheraddr"), &[]);
+    let res_err = execute_add_native_token_decimals(
+        deps.as_mut(),
+        env.clone(),
+        bad_info,
+        valid_denom.clone(),
+        decimals,
+    );
+    match res_err {
+        Err(StdError::GenericErr { msg, .. }) => {
+            assert_eq!(msg, "unauthorized: sender does not match owner in denom")
+        }
+        _ => panic!("Expected unauthorized error"),
+    }
+
 }

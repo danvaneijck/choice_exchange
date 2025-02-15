@@ -70,8 +70,11 @@ pub fn execute(deps: DepsMut, env: Env, info: MessageInfo, msg: ExecuteMsg) -> S
                 if found.is_none() {
                     return Err(StdError::generic_err("Insufficient funds for bonding"));
                 }
+                bond(deps, env, info.sender.clone(), amount)
             }
-            bond(deps, env, info.sender.clone(), amount)
+            else {
+                return Err(StdError::generic_err("Cannot call bond directly with non native tokens"));
+            }
         },
         ExecuteMsg::Unbond { amount } => unbond(deps, env, info, amount),
         ExecuteMsg::Withdraw {} => withdraw(deps, env, info),

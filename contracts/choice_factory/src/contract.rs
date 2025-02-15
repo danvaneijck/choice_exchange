@@ -225,8 +225,24 @@ pub fn execute_add_native_token_decimals(
     let config: Config = CONFIG.load(deps.storage)?;
 
     // permission check
-    if deps.api.addr_canonicalize(info.sender.as_str())? != config.owner {
-        return Err(StdError::generic_err("unauthorized"));
+    if denom.starts_with("factory/") {
+        // Expect format: "factory/owneraddr/subdenom"
+        let parts: Vec<&str> = denom.split('/').collect();
+        if parts.len() < 3 {
+            return Err(StdError::generic_err("invalid denom format"));
+        }
+        // parts[1] is the owner address part.
+        let owner_in_denom = parts[1];
+        let sender_canonical = deps.api.addr_canonicalize(info.sender.as_str())?;
+        let owner_in_denom_canonical = deps.api.addr_canonicalize(owner_in_denom)?;
+        if sender_canonical != owner_in_denom_canonical && sender_canonical != config.owner {
+            return Err(StdError::generic_err("unauthorized: sender does not match owner in denom"));
+        }
+    } else {
+        // For non-factory denoms, require that the sender is the contract owner.
+        if deps.api.addr_canonicalize(info.sender.as_str())? != config.owner {
+            return Err(StdError::generic_err("unauthorized"));
+        }
     }
 
     let balance = query_balance(&deps.querier, env.contract.address, denom.to_string())?;
