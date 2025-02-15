@@ -6,8 +6,7 @@ use crate::state::{pair_key, TmpPairInfo, TMP_PAIR_INFO, CONFIG, Config};
 
 use cosmwasm_std::testing::{mock_env, message_info, MockApi, MockStorage, MOCK_CONTRACT_ADDR};
 use cosmwasm_std::{
-    attr, coin, coins, from_json, to_json_binary, Binary, CosmosMsg, OwnedDeps, Reply, ReplyOn,
-    Response, StdError, SubMsg, SubMsgResponse, SubMsgResult, Uint128, WasmMsg, Api, MsgResponse
+    attr, coin, coins, from_json, to_json_binary, Api, Binary, Coin, CosmosMsg, MsgResponse, OwnedDeps, Reply, ReplyOn, Response, StdError, SubMsg, SubMsgResponse, SubMsgResult, Uint128, WasmMsg
 };
 use cw20::Cw20ExecuteMsg;
 use choice::asset::{Asset, AssetInfo, PairInfo};
@@ -154,6 +153,10 @@ fn create_pair() {
     deps = init(deps);
     deps.querier
         .with_choice_factory(&[], &[("uusd".to_string(), 6u8)]);
+
+    deps.querier.with_token_factory_denom_create_fee(&[
+        (&"inj", Uint128::from(1u128))
+    ]);
     
     let assets = [
         Asset {
@@ -175,7 +178,12 @@ fn create_pair() {
     };
 
     let env = mock_env();
-    let info = message_info(&deps.api.addr_make("addr0000"), &[]);
+    let info = message_info(&deps.api.addr_make("addr0000"), &vec![
+        Coin{
+            denom: "inj".to_string(),
+            amount: Uint128::from(1u128)
+        }
+    ]);
     let res = execute(deps.as_mut(), env, info, msg).unwrap();
     
     assert_eq!(
@@ -210,7 +218,12 @@ fn create_pair() {
                 })
                 .unwrap(),
                 code_id: 321u64,
-                funds: vec![],
+                funds: vec![
+                    Coin{
+                        denom: "inj".to_string(),
+                        amount: Uint128::from(1u128)
+                    }
+                ],
                 label: "pair".to_string(),
                 admin: Some(MOCK_CONTRACT_ADDR.to_string()),
             }
@@ -252,6 +265,10 @@ fn create_pair_native_token_and_ibc_token() {
         &[("uusd".to_string(), 6u8), ("ibc/HASH".to_string(), 6u8)],
     );
 
+    deps.querier.with_token_factory_denom_create_fee(&[
+        (&"inj", Uint128::from(1u128))
+    ]);
+
     let assets = [
         Asset {
             info: AssetInfo::NativeToken {
@@ -272,7 +289,12 @@ fn create_pair_native_token_and_ibc_token() {
     };
 
     let env = mock_env();
-    let info = message_info(&mock_api.addr_make("addr0000"), &[]);
+    let info = message_info(&mock_api.addr_make("addr0000"), &vec![
+        Coin{
+            denom: "inj".to_string(),
+            amount: Uint128::from(1u128)
+        }
+    ]);
     let res = execute(deps.as_mut(), env, info, msg).unwrap();
     assert_eq!(
         res.attributes,
@@ -302,7 +324,12 @@ fn create_pair_native_token_and_ibc_token() {
                 })
                 .unwrap(),
                 code_id: 321u64,
-                funds: vec![],
+                funds: vec![
+                    Coin{
+                        denom: "inj".to_string(),
+                        amount: Uint128::from(1u128)
+                    }
+                ],
                 label: "pair".to_string(),
                 admin: Some(MOCK_CONTRACT_ADDR.to_string()),
             }

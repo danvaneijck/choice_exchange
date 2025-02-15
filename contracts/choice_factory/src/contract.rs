@@ -6,7 +6,7 @@ use cosmwasm_std::{
 };
 use cw2::set_contract_version;
 use cw20::Cw20ExecuteMsg;
-use choice::querier::{query_balance, query_pair_info_from_pair};
+use choice::querier::{query_balance, query_pair_info_from_pair, query_token_factory_denom_create_fee};
 
 use crate::response::MsgInstantiateContractResponse;
 use crate::state::{
@@ -25,7 +25,6 @@ use choice::pair::{
     MigrateMsg as PairMigrateMsg,
 };
 use choice::util::migrate_version;
-use hex;
 use injective_cosmwasm::query::InjectiveQueryWrapper;
 
 // version info for migration info
@@ -132,8 +131,6 @@ pub fn execute_create_pair(
 ) -> StdResult<Response> {
     let config: Config = CONFIG.load(deps.storage)?;
 
-    println!("config: {:?}", config);
-
     if assets[0].info == assets[1].info {
         return Err(StdError::generic_err("same asset"));
     }
@@ -146,9 +143,6 @@ pub fn execute_create_pair(
         Err(_) => return Err(StdError::generic_err("asset1 is invalid")),
     };
 
-    println!("asset_1_decimal: {:?}", asset_1_decimal);
-
-
     let asset_2_decimal = match assets[1]
         .info
         .query_decimals(env.contract.address.clone(), &deps.querier)
@@ -157,14 +151,7 @@ pub fn execute_create_pair(
         Err(_) => return Err(StdError::generic_err("asset2 is invalid")),
     };
 
-    println!("asset_2_decimal: {:?}", asset_2_decimal);
-
-    println!("assets: {:?}", assets);
-
     let raw_assets = [assets[0].to_raw(deps.api)?, assets[1].to_raw(deps.api)?];
-
-    println!("raw assets: {:?}", raw_assets);
-
 
     let asset_infos = [assets[0].info.clone(), assets[1].info.clone()];
     let raw_infos = [
@@ -189,6 +176,19 @@ pub fn execute_create_pair(
         },
     )?;
 
+    let creation_fee: Vec<Coin> = query_token_factory_denom_create_fee(&deps.querier).unwrap();
+
+    // Check that the sender provided at least the required funds for each coin in the creation fee.
+    for fee in creation_fee.iter() {
+        let coin_opt = info.funds.iter().find(|c| c.denom == fee.denom);
+        if coin_opt.is_none() || coin_opt.unwrap().amount < fee.amount {
+            return Err(StdError::generic_err(format!(
+                "Insufficient funds: require at least {} {}",
+                fee.amount, fee.denom
+            )));
+        }
+    }
+
     Ok(Response::new()
         .add_attributes(vec![
             ("action", "create_pair"),
@@ -200,7 +200,7 @@ pub fn execute_create_pair(
             gas_limit: None,
             msg: CosmosMsg::Wasm(WasmMsg::Instantiate {
                 code_id: config.pair_code_id,
-                funds: vec![],
+                funds: creation_fee.clone(),
                 admin: Some(env.contract.address.to_string()),
                 label: "pair".to_string(),
                 msg: to_json_binary(&PairInstantiateMsg {
@@ -309,35 +309,20 @@ pub fn reply(deps: DepsMut<InjectiveQueryWrapper>, env: Env, msg: Reply) -> StdR
         return Err(StdError::generic_err("no data or msg_responses found in submessage response"));
     };
 
-    println!("Raw data_bytes: {:?}", data_bytes);
-    println!("data_bytes (hex): {}", hex::encode(&data_bytes));
-
     let res: MsgInstantiateContractResponse = Message::parse_from_bytes(data_bytes.as_slice())
         .map_err(|_| StdError::parse_err("MsgInstantiateContractResponse", "failed to parse data"))?;
 
     let pair_contract = res.get_address();
-    println!("Address: {:?}", pair_contract);
     let pair_info = query_pair_info_from_pair(&deps.querier, Addr::unchecked(pair_contract))?;
-
-    println!("pair_info: {:?}", pair_info);
-
 
     let raw_infos = [
         tmp_pair_info.assets[0].info.clone(),
         tmp_pair_info.assets[1].info.clone(),
     ];
 
-    println!("raw_infos: {:?}", raw_infos);
-
-
     let factory_config: Config = CONFIG.load(deps.storage)?;
     let burn_address = factory_config.burn_address.clone();
     let fee_wallet_address = factory_config.fee_wallet_address.clone();
-
-    println!("factory_config: {:?}", factory_config);
-    println!("burn_address: {:?}", burn_address);
-    println!("fee_wallet_address: {:?}", fee_wallet_address);
-
 
     PAIRS.save(
         deps.storage,
@@ -351,8 +336,6 @@ pub fn reply(deps: DepsMut<InjectiveQueryWrapper>, env: Env, msg: Reply) -> StdR
             fee_wallet_address, // Add fee wallet address
         },
     )?;
-
-    println!("saved");
 
     let mut messages: Vec<CosmosMsg> = vec![];
     if !tmp_pair_info.assets[0].amount.is_zero() || !tmp_pair_info.assets[1].amount.is_zero() {

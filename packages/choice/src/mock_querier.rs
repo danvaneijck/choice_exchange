@@ -2,7 +2,8 @@ use cosmwasm_std::testing::{MockApi, MockQuerier, MockStorage, MOCK_CONTRACT_ADD
 use cosmwasm_std::{
     from_json, to_json_binary, Binary, Coin, ContractResult, Empty, OwnedDeps, Querier, QuerierResult, QueryRequest, SystemError, SystemResult, Uint128, WasmQuery
 };
-use injective_cosmwasm::{HandlesDenomSupplyQuery, InjectiveQuery, InjectiveRoute};
+use injective_cosmwasm::tokenfactory::response::TokenFactoryCreateDenomFeeResponse;
+use injective_cosmwasm::{HandlesDenomSupplyQuery, InjectiveQuery, InjectiveRoute, HandlesFeeQuery};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::marker::PhantomData;
@@ -39,6 +40,7 @@ pub struct WasmMockQuerier {
     token_querier: TokenQuerier,
     choice_factory_querier: ChoiceFactoryQuerier,
     token_factory_denom_total_supply_handler: Option<Box<dyn HandlesDenomSupplyQuery>>,
+    token_factory_denom_creation_fee_handler: Option<Box<dyn HandlesFeeQuery>>,
     inj: InjWasmMockQuerier
 }
 
@@ -286,6 +288,18 @@ impl WasmMockQuerier {
                             })
                         }
                     },
+                    InjectiveQueryWrapper { 
+                        route: InjectiveRoute::Tokenfactory, 
+                        query_data: InjectiveQuery::TokenFactoryDenomCreationFee { }
+                    } => {
+                        if let Some(handler) = &self.token_factory_denom_creation_fee_handler {
+                            handler.handle()
+                        } else {
+                            SystemResult::Err(SystemError::UnsupportedRequest {
+                                kind: "TokenFactoryDenomCreationFee".to_string(),
+                            })
+                        }
+                    },
                     // Fallback: if it's a Custom query that we don't handle specially, try the base querier.
                     _ => self.inj.handle_query(request),
                 }
@@ -360,6 +374,36 @@ impl HandlesDenomSupplyQuery for MockDenomSupplyHandler {
     }
 }
 
+
+// Create a mock fee handler that stores fees in a map (denom -> fee).
+#[derive(Clone, Default)]
+pub struct MockFeeHandler {
+    pub fees: HashMap<String, Uint128>,
+}
+
+impl HandlesFeeQuery for MockFeeHandler {
+    fn handle(&self) -> SystemResult<ContractResult<Binary>> {
+        let response = TokenFactoryCreateDenomFeeResponse {
+            fee: vec![
+                Coin{
+                    denom: "inj".to_string(),
+                    amount: Uint128::from(1u128)
+                }
+            ]
+        };
+        let bin = match to_json_binary(&response) {
+            Ok(bin) => bin,
+            Err(e) => {
+                return SystemResult::Err(SystemError::InvalidRequest {
+                    error: format!("Serialization error: {}", e),
+                    request: Binary::default(),
+                })
+            }
+        };
+        SystemResult::Ok(ContractResult::Ok(bin))
+    }
+}
+
 impl WasmMockQuerier {
     pub fn new(base: MockQuerier) -> Self {
         WasmMockQuerier {
@@ -367,6 +411,7 @@ impl WasmMockQuerier {
             token_querier: TokenQuerier::default(),
             choice_factory_querier: ChoiceFactoryQuerier::default(),
             token_factory_denom_total_supply_handler: None,
+            token_factory_denom_creation_fee_handler: None,
             inj: InjWasmMockQuerier::default()
         }
     }
@@ -398,6 +443,16 @@ impl WasmMockQuerier {
         }
         self.token_factory_denom_total_supply_handler = Some(Box::new(MockDenomSupplyHandler {
             supplies: supply_map,
+        }));
+    }
+
+    pub fn with_token_factory_denom_create_fee(&mut self, fees: &[(&str, Uint128)]) {
+        let mut fee_map = HashMap::new();
+        for (denom, fee) in fees.iter() {
+            fee_map.insert(denom.to_string(), *fee);
+        }
+        self.token_factory_denom_creation_fee_handler = Some(Box::new(MockFeeHandler {
+            fees: fee_map,
         }));
     }
 }
