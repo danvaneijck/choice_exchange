@@ -259,7 +259,6 @@ pub fn provide_liquidity(
         pair_info.liquidity_token.clone(),
     ).unwrap();
 
-
     let share: Uint128 = if total_share.is_zero() {
         // Initial share = collateral amount
         let deposit0: Uint256 = deposits[0].into();
@@ -297,7 +296,6 @@ pub fn provide_liquidity(
             deposits[1].multiply_ratio(total_share, pools[1].amount),
         )
     };
-    
 
     // prevent providing free token
     if share.is_zero() {
