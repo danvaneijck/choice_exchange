@@ -259,32 +259,31 @@ pub fn provide_liquidity(
         pair_info.liquidity_token.clone(),
     ).unwrap();
 
-    // println!("total_share: {:?}", total_share);
-
     let share: Uint128 = if total_share.is_zero() {
         // Initial share = collateral amount
         let deposit0: Uint256 = deposits[0].into();
         let deposit1: Uint256 = deposits[1].into();
-        let share: Uint128 = match (Uint256::from(1u8).mul_floor(Decimal256::from_ratio(deposit0.mul(deposit1), 1u8).sqrt()))
-        .try_into()
-        {
-            Ok(share) => share,
-            Err(e) => return Err(ContractError::ConversionOverflowError(e)),
-        };
-
-        // the initial liquidity is deducted by MINIMUM_LIQUIDITY_AMOUNT
-        // to protect a pair from malicious provision blocking
+    
+        // Compute the square root of the product.
+        let computed = Decimal256::from_ratio(deposit0.mul(deposit1), 1u8).sqrt();
+        // Assume Decimal256 uses 18 decimals. Its internal representation of 1 is 1e18.
+        // To get the integer value 1, we divide by 10^18.
+        let scaling_factor = Uint256::from(1_000_000_000_000_000_000u128);
+        let share: Uint128 = (computed.atomics() / scaling_factor)
+            .try_into()
+            .map_err(|e| ContractError::ConversionOverflowError(e))?;
+    
+        // Mint the minimum liquidity tokens to lock forever (to protect the pair)
         messages.push(create_mint_tokens_msg(
-            env.contract.address.clone(), 
+            env.contract.address.clone(),
             Coin {
                 denom: pair_info.liquidity_token.clone(),
                 amount: MINIMUM_LIQUIDITY_AMOUNT.into(),
             },
-            env.contract.address.to_string(), 
+            env.contract.address.to_string(),
         ));
-
-        // println!("share: {:?}", share);
-
+    
+        // Deduct the minimum liquidity amount and return the result.
         share
             .checked_sub(MINIMUM_LIQUIDITY_AMOUNT.into())
             .map_err(|_| ContractError::MinimumLiquidityAmountError {
@@ -292,12 +291,6 @@ pub fn provide_liquidity(
                 given_lp: share.to_string(),
             })?
     } else {
-        // min(1, 2)
-        // 1. sqrt(deposit_0 * exchange_rate_0_to_1 * deposit_0) * (total_share / sqrt(pool_0 * pool_1))
-        // == deposit_0 * total_share / pool_0
-        // 2. sqrt(deposit_1 * exchange_rate_1_to_0 * deposit_1) * (total_share / sqrt(pool_1 * pool_1))
-        // == deposit_1 * total_share / pool_1
-
         std::cmp::min(
             deposits[0].multiply_ratio(total_share, pools[0].amount),
             deposits[1].multiply_ratio(total_share, pools[1].amount),
@@ -358,14 +351,14 @@ pub fn provide_liquidity(
 
     // mint LP token to sender
     let receiver = receiver.unwrap_or_else(|| info.sender.to_string());
-    messages.push(create_mint_tokens_msg(
-    env.contract.address.clone(), // use contract as the minter/sender
-    Coin {
-        denom: pair_info.liquidity_token.clone(), // the LP denom stored as string
-        amount: share,
-    },
-    receiver.to_string(), // mint to the receiver
-));
+        messages.push(create_mint_tokens_msg(
+        env.contract.address.clone(), // use contract as the minter/sender
+        Coin {
+            denom: pair_info.liquidity_token.clone(), // the LP denom stored as string
+            amount: share,
+        },
+        receiver.to_string(), // mint to the receiver
+    ));
 
     Ok(Response::new().add_messages(messages).add_attributes(vec![
         ("action", "provide_liquidity"),
